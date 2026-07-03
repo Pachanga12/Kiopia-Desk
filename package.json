@@ -1,0 +1,32 @@
+{
+  "name": "kopia-desk",
+  "version": "1.0.0",
+  "description": "Aplicación de copias de seguridad incrementales para Windows",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test",
+    "build": "electron-builder --win"
+  },
+  "author": "Kopia Desk",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^43.0.0",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.kopiadesk.app",
+    "productName": "Kopia Desk",
+    "win": {
+      "target": "nsis",
+      "icon": "assets/Kopia_Desk.png"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "lib/**/*",
+      "renderer/**/*",
+      "assets/**/*"
+    ]
+  }
+}
