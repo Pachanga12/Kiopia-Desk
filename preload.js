@@ -22,11 +22,18 @@ contextBridge.exposeInMainWorld("kopiaAPI", {
 
   planConcurrency: (driveRoot, avgFileSize) => ipcRenderer.invoke("backup:plan-concurrency", driveRoot, avgFileSize),
 
+  encryptionStatus: (driveRoot) => ipcRenderer.invoke("encryption:status", driveRoot),
+  openBitLockerPanel: () => ipcRenderer.invoke("encryption:open-panel"),
+  encryptDrive: (driveRoot, options) => ipcRenderer.invoke("encryption:encrypt", driveRoot, options),
+  lockDrive: (driveRoot, volumeId) => ipcRenderer.invoke("encryption:lock", driveRoot, volumeId),
+  unlockDrive: (driveRoot) => ipcRenderer.invoke("encryption:unlock", driveRoot),
+  encryptionJobStatus: (driveRoot, action) => ipcRenderer.invoke("encryption:job-status", driveRoot, action),
+
   journalPeek: (destRoot) => ipcRenderer.invoke("journal:peek", destRoot),
   journalCheck: (destRoot) => ipcRenderer.invoke("journal:check", destRoot),
 
   backupCopyFiles: (tasks, options) => ipcRenderer.invoke("backup:copy-files", tasks, options),
-  backupCopyVersions: (tasks) => ipcRenderer.invoke("backup:copy-versions", tasks),
+  backupCopyVersions: (tasks, options) => ipcRenderer.invoke("backup:copy-versions", tasks, options),
   logSave: (destRoot, sourceName, report) => ipcRenderer.invoke("log:save", destRoot, sourceName, report),
 
   restoreListSources: (backupDrive) => ipcRenderer.invoke("restore:list-sources", backupDrive),
@@ -41,5 +48,16 @@ contextBridge.exposeInMainWorld("kopiaAPI", {
     const handler = (_event, data) => callback(data);
     ipcRenderer.on("progress", handler);
     return () => ipcRenderer.removeListener("progress", handler);
+  },
+
+  // Ventana sin marco: controles propios en la barra de título.
+  windowMinimize: () => ipcRenderer.invoke("window:minimize"),
+  windowToggleMaximize: () => ipcRenderer.invoke("window:toggle-maximize"),
+  windowClose: () => ipcRenderer.invoke("window:close"),
+  windowIsMaximized: () => ipcRenderer.invoke("window:is-maximized"),
+  onWindowStateChange: (callback) => {
+    const handler = (_event, data) => callback(data);
+    ipcRenderer.on("window:state", handler);
+    return () => ipcRenderer.removeListener("window:state", handler);
   },
 });

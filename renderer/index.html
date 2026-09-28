@@ -5,166 +5,380 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'"
     />
-    <title>Kopia Desk</title>
+    <title>Kopia Desk v2</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
-    <main class="shell">
-      <section class="topbar" aria-label="Resumen del sistema">
-        <div>
-          <p class="eyebrow">Backup incremental</p>
-          <h1>Kopia Desk</h1>
+    <!-- Franja de marca (colores del logo) + barra de título sin marco. -->
+    <div class="brand-stripe"></div>
+    <header class="titlebar" id="titlebar">
+      <div class="tb-brand">
+        <span class="logo-badge"><img src="../assets/Kopia_Desk_icon.png" alt="" /></span>
+        <span>Kopia Desk <small class="version-tag">V2</small></span>
+      </div>
+      <div class="tb-controls">
+        <button id="themeToggle" class="tb-btn theme-toggle" type="button" title="Cambiar tema" aria-label="Cambiar tema">
+          <svg id="themeIconMoon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5z"></path>
+          </svg>
+          <svg id="themeIconSun" hidden viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="4.2"></circle>
+            <line x1="12" y1="2.5" x2="12" y2="5"></line><line x1="12" y1="19" x2="12" y2="21.5"></line>
+            <line x1="2.5" y1="12" x2="5" y2="12"></line><line x1="19" y1="12" x2="21.5" y2="12"></line>
+            <line x1="5.1" y1="5.1" x2="6.9" y2="6.9"></line><line x1="17.1" y1="17.1" x2="18.9" y2="18.9"></line>
+            <line x1="5.1" y1="18.9" x2="6.9" y2="17.1"></line><line x1="17.1" y1="6.9" x2="18.9" y2="5.1"></line>
+          </svg>
+        </button>
+        <div class="tb-winctl">
+          <button id="winMin" class="tb-winbtn" type="button" title="Minimizar" aria-label="Minimizar">
+            <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1"><line x1="0" y1="5" x2="10" y2="5"></line></svg>
+          </button>
+          <button id="winMax" class="tb-winbtn" type="button" title="Maximizar" aria-label="Maximizar">
+            <svg id="winMaxIcon" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1"><rect x="0.5" y="0.5" width="9" height="9"></rect></svg>
+            <svg id="winRestoreIcon" hidden viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1">
+              <rect x="0.5" y="2" width="7" height="7"></rect><path d="M2.5 2V0.5h7v7H8"></path>
+            </svg>
+          </button>
+          <button id="winClose" class="tb-winbtn close" type="button" title="Cerrar" aria-label="Cerrar">
+            <svg viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1"><line x1="0" y1="0" x2="10" y2="10"></line><line x1="10" y1="0" x2="0" y2="10"></line></svg>
+          </button>
         </div>
-        <div class="topbar-actions">
-          <div class="status-grid">
-            <div>
-              <span id="sourceCount">0</span>
-              <small>carpetas</small>
-            </div>
-            <div>
-              <span id="changeCount">0</span>
-              <small>cambios</small>
-            </div>
-            <div>
-              <span id="copiedCount">0</span>
-              <small>copiados</small>
-            </div>
-          </div>
-          <button id="themeToggle" class="ghost theme-toggle" type="button">Tema oscuro</button>
-        </div>
-      </section>
+      </div>
+    </header>
 
-      <section class="workspace">
-        <aside class="sidebar" aria-label="Controles">
-          <div class="brand-panel">
-            <img class="app-logo" src="../assets/Kopia_Desk.png" alt="Logo de Kopia Desk" />
-            <div>
-              <h2>Copias incrementales</h2>
-              <p>Selecciona carpetas, escanea diferencias y decide qué se copia al destino.</p>
-            </div>
-          </div>
+    <div class="shell">
+      <aside class="nav-rail" aria-label="Navegación">
+        <nav>
+          <button
+            id="tabBackup"
+            class="nav-item active"
+            data-tab="backup"
+            type="button"
+            title="Guarda en el disco destino los archivos nuevos o cambiados de tus carpetas"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 15V6.5a1 1 0 0 1 1-1h4l1.6 2h8.4a1 1 0 0 1 1 1V15"></path>
+              <path d="M4 15a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1"></path>
+              <path d="M12 9v6M9 12l3-3 3 3"></path>
+            </svg>
+            <span>Backup</span>
+          </button>
+          <button
+            id="tabCompare"
+            class="nav-item"
+            data-tab="compare"
+            type="button"
+            title="Restaura solo los archivos que faltan en tu PC, comparando contra el backup"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M8 4h6l4 4v12H8z"></path>
+              <path d="M6 8H4v12h10v-2"></path>
+              <path d="M10.5 13.5l2 2 3-3.5"></path>
+            </svg>
+            <span>Comparar</span>
+          </button>
+          <button
+            id="tabRestoreFull"
+            class="nav-item"
+            data-tab="restore-full"
+            type="button"
+            title="Copia todo el contenido de una carpeta del backup a cualquier ubicación, sin comparar"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 12a9 9 0 1 0 3-6.7"></path>
+              <path d="M3 4v5h5"></path>
+            </svg>
+            <span>Restaurar</span>
+          </button>
+        </nav>
 
-          <div class="control-block">
-            <h3>Origen</h3>
-            <button id="addSourceBtn" class="primary">+ Añadir carpeta</button>
-            <div id="quickFolders" class="quick-folders"></div>
-            <div id="sourcesList" class="list empty">Sin carpetas seleccionadas</div>
-          </div>
-
-          <div class="control-block">
-            <h3>Destino</h3>
-            <select id="destinationSelect" class="destination-select" aria-label="Disco destino">
-              <option value="">Buscando discos...</option>
-            </select>
-            <button id="refreshDrivesBtn" class="secondary">Actualizar discos</button>
-            <div id="destinationLabel" class="destination">Selecciona donde guardar</div>
-            <p class="hint">
-              En "Backup" es donde se guarda la copia. En "Comparar" y "Restaurar" es el
-              disco que ya tiene tu backup.
-            </p>
-          </div>
-
-          <div class="control-block">
-            <h3>Opciones</h3>
-            <label
-              class="toggle"
-              title="Antes de sobrescribir un archivo cambiado, guarda una copia comprimida de la versión anterior. Así puedes recuperar cómo era antes."
-            >
-              <input id="versioningToggle" type="checkbox" checked />
-              <span>Guardar versiones de cambiados (comprimidas)</span>
-              <span class="info-dot" aria-hidden="true">?</span>
-            </label>
-            <label
-              class="toggle"
-              title="Compara el contenido completo de cada archivo (SHA-256). Es más lento, pero asegura que el contenido realmente cambió."
-            >
-              <input id="hashToggle" type="checkbox" />
-              <span>Verificación profunda (hash SHA-256 completo)</span>
-              <span class="info-dot" aria-hidden="true">?</span>
-            </label>
-            <label
-              class="toggle"
-              title="Si tienes archivos idénticos repetidos, se guarda el contenido una sola vez. Ahorra espacio en el disco de backup."
-            >
-              <input id="dedupToggle" type="checkbox" />
-              <span>Deduplicar contenido (ahorra espacio)</span>
-              <span class="info-dot" aria-hidden="true">?</span>
-            </label>
-            <label
-              class="toggle"
-              title="Muestra información técnica, como el tipo de disco detectado (SSD/HDD/USB) y cuántos archivos se copian en paralelo."
-            >
-              <input id="advancedToggle" type="checkbox" />
-              <span>Mostrar detalles técnicos</span>
-              <span class="info-dot" aria-hidden="true">?</span>
-            </label>
-            <div id="driveInfo" class="hint" hidden></div>
-          </div>
-
-          <div class="actions">
-            <button id="scanBtn" class="primary">Escanear cambios</button>
-            <button id="backupBtn" disabled>Copiar aceptados</button>
-          </div>
-        </aside>
-
-        <section class="main-panel" aria-label="Cambios detectados">
+        <section class="log-panel" aria-label="Registro">
           <div class="panel-head">
-            <div class="tab-bar">
-              <button
-                id="tabBackup"
-                class="tab active"
-                data-tab="backup"
-                title="Guarda en el disco destino los archivos nuevos o cambiados de tus carpetas"
-              >
-                Backup
-              </button>
-              <button
-                id="tabCompare"
-                class="tab"
-                data-tab="compare"
-                title="Restaura solo los archivos que faltan en tu PC, comparando contra el backup"
-              >
-                Comparar
-              </button>
-              <button
-                id="tabRestoreFull"
-                class="tab"
-                data-tab="restore-full"
-                title="Copia todo el contenido de una carpeta del backup a cualquier ubicación, sin comparar"
-              >
-                Restaurar
-              </button>
-            </div>
-            <div id="spaceInfo" class="space-info"></div>
+            <h2>Registro</h2>
+            <button id="clearHistoryBtn" class="ghost" type="button">Borrar</button>
           </div>
+          <ol id="logList"></ol>
+        </section>
+      </aside>
 
+      <div class="workspace">
+        <div class="stat-strip">
+          <div class="stat-tile">
+            <span class="label">Carpetas</span>
+            <div class="value"><span id="sourceCount">0</span><small>agregadas</small></div>
+          </div>
+          <div class="stat-tile">
+            <span class="label">Cambios detectados</span>
+            <div class="value"><span id="changeCount">0</span><small>archivos</small></div>
+          </div>
+          <div class="stat-tile">
+            <span class="label">Copiados</span>
+            <div class="value"><span id="copiedCount">0</span><small>última corrida</small></div>
+          </div>
+          <div class="stat-tile">
+            <span class="label">Deduplicados</span>
+            <div class="value"><span id="dedupedCount">—</span><small>sin copiar bytes</small></div>
+          </div>
+        </div>
+
+        <main class="canvas">
           <div id="spaceWarning" class="warning" hidden></div>
+          <div id="fsWarning" class="warning" hidden></div>
 
           <!-- Aviso de backup interrumpido: se pide confirmación antes de limpiar -->
           <div id="journalNotice" class="warning" hidden>
-            <p id="journalNoticeText"></p>
-            <div class="notice-actions">
-              <button id="journalCleanBtn" class="primary" type="button">Continuar y limpiar</button>
-              <button id="journalSkipBtn" type="button">Ahora no</button>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 9v4M12 17h.01"></path>
+              <path d="M10.3 3.9 2.7 17a1.8 1.8 0 0 0 1.6 2.7h15.4a1.8 1.8 0 0 0 1.6-2.7L13.7 3.9a1.8 1.8 0 0 0-3.4 0z"></path>
+            </svg>
+            <div>
+              <p id="journalNoticeText"></p>
+              <div class="notice-actions">
+                <button id="journalCleanBtn" class="primary" type="button">Continuar y limpiar</button>
+                <button id="journalSkipBtn" type="button">Ahora no</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Aviso de cambios sospechosos: patrón parecido a corrupción masiva o
+               ransomware (mucho cambió de golpe). Pide confirmación explícita
+               antes de dejar copiar, para no propagar algo malo sobre el backup. -->
+          <div id="suspiciousWarning" class="warning" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 9v4M12 17h.01"></path>
+              <path d="M10.3 3.9 2.7 17a1.8 1.8 0 0 0 1.6 2.7h15.4a1.8 1.8 0 0 0 1.6-2.7L13.7 3.9a1.8 1.8 0 0 0-3.4 0z"></path>
+            </svg>
+            <div>
+              <p id="suspiciousWarningText"></p>
+              <label class="warning-ack">
+                <input id="suspiciousAckCheckbox" type="checkbox" />
+                Entiendo el riesgo y quiero copiar igual
+              </label>
             </div>
           </div>
 
           <!-- Barra de progreso -->
-          <div id="progressContainer" class="progress-container" hidden>
+          <div id="progressContainer" class="progress-card" hidden>
             <div class="progress-header">
               <span id="progressPhase">Escaneando...</span>
-              <span id="progressPercent">0%</span>
+              <span id="progressPercent" class="mono">0%</span>
             </div>
             <div class="progress-bar-track">
               <div id="progressBar" class="progress-bar-fill"></div>
             </div>
-            <div id="progressDetail" class="progress-detail"></div>
+            <div id="progressDetail" class="progress-detail mono"></div>
           </div>
 
           <!-- Vista backup -->
           <div id="backupView">
+            <div class="view-header">
+              <div class="eyebrow-row">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 3v6l4 2"></path><circle cx="12" cy="12" r="9"></circle>
+                </svg>
+                <span>Backup incremental</span>
+              </div>
+              <h1 class="page-title">Copias de seguridad</h1>
+              <p class="page-sub">
+                Elegí las carpetas de origen y a dónde copiarlas. Vas a ver exactamente qué es nuevo, qué cambió y qué se
+                eliminó antes de copiar nada.
+              </p>
+            </div>
+
+            <div class="setup-grid">
+              <section class="card">
+                <div class="card-head">
+                  <div class="card-head-left">
+                    <div class="card-icon">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 6.5a1 1 0 0 1 1-1h5l2 2.2h9a1 1 0 0 1 1 1V18a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6.5z"></path>
+                      </svg>
+                    </div>
+                    <div>
+                      <h2>Origen</h2>
+                      <p>Carpetas a resguardar</p>
+                    </div>
+                  </div>
+                  <button id="addSourceBtn" class="primary" type="button">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    <span>Añadir carpeta</span>
+                  </button>
+                </div>
+
+                <span class="section-label">Accesos rápidos</span>
+                <div id="quickFolders" class="quick-folders"></div>
+
+                <span class="section-label mt-14">Carpetas agregadas</span>
+                <div id="sourcesList" class="list empty">Sin carpetas seleccionadas</div>
+              </section>
+
+              <section class="card">
+                <div class="card-head">
+                  <div class="card-head-left">
+                    <div class="card-icon">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="7" width="18" height="12" rx="1.5"></rect><line x1="3" y1="13" x2="21" y2="13"></line><circle cx="17" cy="16" r="1"></circle>
+                      </svg>
+                    </div>
+                    <div>
+                      <h2>Destino</h2>
+                      <p>Disco donde se guarda la copia</p>
+                    </div>
+                  </div>
+                </div>
+
+                <span class="section-label">Disco</span>
+                <select id="destinationSelect" class="destination-select" aria-label="Disco destino">
+                  <option value="">Buscando discos...</option>
+                </select>
+
+                <div class="drive-card" id="driveCard">
+                  <div class="drive-head">
+                    <div class="drive-glyph">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M4 15V7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v6"></path>
+                        <path d="M2 15h20l-1.5 5a2 2 0 0 1-2 1.5H5.5a2 2 0 0 1-2-1.5z"></path>
+                      </svg>
+                    </div>
+                    <div class="drive-info-col">
+                      <div class="drive-name" id="destinationLabel">Selecciona donde guardar</div>
+                      <div class="drive-sub mono" id="spaceInfo"></div>
+                    </div>
+                  </div>
+                  <div class="usage-track"><div class="usage-fill" id="usageFill"></div></div>
+                  <div class="drive-foot mono" id="repoPathHint"></div>
+                  <div id="driveInfo" class="hint" hidden></div>
+                </div>
+
+                <!-- Estado de cifrado del destino (BitLocker): cifrar, desbloquear y
+                     bloquear desde aquí. La contraseña y la clave de recuperación
+                     nunca pasan por la app: las piden ventanas de Windows o del
+                     ayudante elevado (lib/bitlocker-helper.ps1). -->
+                <div id="encryptionPanel" class="encryption-panel" hidden>
+                  <p id="encryptionStatus"></p>
+                  <div id="encryptionProgress" class="encryption-progress" hidden>
+                    <div id="encryptionProgressFill" class="encryption-progress-fill"></div>
+                  </div>
+                  <div class="notice-actions">
+                    <button id="encryptBtn" class="primary" type="button" hidden>Cifrar este disco</button>
+                    <button id="unlockBtn" class="primary" type="button" hidden>Desbloquear</button>
+                    <button id="lockBtn" class="ghost" type="button" hidden>Bloquear ahora</button>
+                    <button id="encryptionOpenBtn" class="ghost" type="button" hidden>Abrir panel de BitLocker</button>
+                    <button id="encryptionRecheckBtn" class="ghost" type="button">Comprobar de nuevo</button>
+                  </div>
+                  <label id="lockAfterLabel" class="warning-ack" hidden>
+                    <input id="lockAfterToggle" type="checkbox" />
+                    Bloquear el disco al terminar el backup
+                  </label>
+                  <label id="encryptionAckLabel" class="warning-ack" hidden>
+                    <input id="encryptionAck" type="checkbox" />
+                    Entiendo el riesgo: continuar sin cifrar este disco
+                  </label>
+                </div>
+
+                <div class="dest-actions">
+                  <button id="refreshDrivesBtn" class="link-btn" type="button">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M3 12a9 9 0 0 1 15.3-6.4L21 8"></path><path d="M21 3v5h-5"></path>
+                      <path d="M21 12a9 9 0 0 1-15.3 6.4L3 16"></path><path d="M3 21v-5h5"></path>
+                    </svg>
+                    <span>Actualizar discos</span>
+                  </button>
+                </div>
+                <p class="hint">
+                  En «Backup» es donde se guarda la copia. En «Comparar» y «Restaurar» es el disco que ya tiene tu
+                  backup.
+                </p>
+              </section>
+            </div>
+
+            <section class="card">
+              <div class="card-head">
+                <div class="card-head-left">
+                  <div class="card-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                      <line x1="4" y1="6" x2="20" y2="6"></line><circle cx="9" cy="6" r="2" fill="currentColor" stroke="none"></circle>
+                      <line x1="4" y1="12" x2="20" y2="12"></line><circle cx="15" cy="12" r="2" fill="currentColor" stroke="none"></circle>
+                      <line x1="4" y1="18" x2="20" y2="18"></line><circle cx="11" cy="18" r="2" fill="currentColor" stroke="none"></circle>
+                    </svg>
+                  </div>
+                  <div>
+                    <h2>Opciones</h2>
+                    <p>Cómo se hace la copia</p>
+                  </div>
+                </div>
+              </div>
+              <div class="options-grid">
+                <label
+                  class="option-row"
+                  title="Antes de sobrescribir un archivo cambiado, guarda una copia comprimida de la versión anterior. Así podés recuperar cómo era antes."
+                >
+                  <input id="versioningToggle" type="checkbox" class="switch" checked />
+                  <div>
+                    <div class="option-title">Guardar versiones de cambiados</div>
+                    <div class="option-desc">Comprime y conserva la versión anterior antes de sobrescribirla.</div>
+                  </div>
+                </label>
+                <label
+                  class="option-row"
+                  title="Los archivos con fecha nueva siempre se comparan por SHA-256 completo. Esta opción revisa también los que conservan tamaño y fecha: más lento, pero detecta cambios que no alteraron la fecha."
+                >
+                  <input id="hashToggle" type="checkbox" class="switch" />
+                  <div>
+                    <div class="option-title">Verificación profunda</div>
+                    <div class="option-desc">Revisa por SHA-256 también los archivos sin fecha nueva. Más lento.</div>
+                  </div>
+                </label>
+                <label
+                  class="option-row"
+                  title="Si tenés archivos idénticos repetidos, se guarda el contenido una sola vez. Ahorra espacio en el disco de backup."
+                >
+                  <input id="dedupToggle" type="checkbox" class="switch" />
+                  <div>
+                    <div class="option-title">Deduplicar contenido</div>
+                    <div class="option-desc">Archivos idénticos se enlazan en vez de copiarse de nuevo.</div>
+                  </div>
+                </label>
+                <label
+                  class="option-row"
+                  title="Muestra información técnica, como el tipo de disco detectado (SSD/HDD/USB) y cuántos archivos se copian en paralelo."
+                >
+                  <input id="advancedToggle" type="checkbox" class="switch" />
+                  <div>
+                    <div class="option-title">Mostrar detalles técnicos</div>
+                    <div class="option-desc">Tipo de disco detectado y concurrencia de copia usada.</div>
+                  </div>
+                </label>
+              </div>
+
+              <span class="section-label mt-14">Excluir además (opcional)</span>
+              <textarea
+                id="excludeInput"
+                class="exclude-input"
+                rows="2"
+                placeholder="Un patrón por línea o separados por coma. Ej: *.iso, Backups_temp"
+                title="Además de lo que ya se ignora por defecto (Thumbs.db, desktop.ini, .git, node_modules, *.tmp, etc.), estos patrones también se saltan al escanear. Admite comodines * y ?."
+              ></textarea>
+              <p class="hint">Se suman a las exclusiones por defecto; no las reemplazan.</p>
+            </section>
+
+            <div class="action-bar">
+              <div class="action-bar-actions">
+                <button id="scanBtn" class="primary" type="button">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.2" y2="16.2"></line>
+                  </svg>
+                  <span>Escanear cambios</span>
+                </button>
+                <button id="backupBtn" type="button" disabled>
+                  <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M13 2 4 14h6l-1 8 9-12h-6z"></path></svg>
+                  <span>Copiar aceptados</span>
+                </button>
+              </div>
+            </div>
+
             <div id="changesView" class="changes-view empty-state">
               <h3>Listo para escanear</h3>
               <p>Agrega una o más carpetas, elige destino y ejecuta el escaneo.</p>
@@ -173,47 +387,84 @@
 
           <!-- Vista comparar: ver qué falta contra una carpeta local existente -->
           <div id="compareView" hidden>
-            <div class="restore-preview-block">
-              <h3>Elige qué comparar</h3>
-              <p class="hint">
-                Compara una carpeta del backup con una carpeta de tu PC y restaura
-                solo los archivos que falten — útil si borraste algo por accidente.
+            <div class="view-header">
+              <div class="eyebrow-row">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M8 4h6l4 4v12H8z"></path><path d="M6 8H4v12h10v-2"></path>
+                </svg>
+                <span>Comparar backup</span>
+              </div>
+              <h1 class="page-title">Comparar diferencias</h1>
+              <p class="page-sub">
+                Compará una carpeta del backup con una carpeta de tu PC y restaurá sólo los archivos que falten — útil si
+                borraste algo por accidente.
               </p>
-              <div id="comparePreview" class="list empty">Selecciona un disco con backup.</div>
-              <button id="compareBtn" class="primary restore-compare-btn" type="button" disabled>
-                Comparar seleccionados
-              </button>
             </div>
+            <section class="card restore-preview-block">
+              <span class="section-label">Elegí qué comparar</span>
+              <div id="comparePreview" class="list empty">Selecciona un disco con backup.</div>
+              <button id="compareBtn" class="primary restore-compare-btn" type="button" disabled>Comparar seleccionados</button>
+            </section>
             <div id="compareResults" class="changes-view empty-state">
               <h3>Resultado de la comparación</h3>
               <p>Marca una o más carpetas arriba, confirma su ubicación local y compara.</p>
             </div>
           </div>
 
-          <!-- Vista restaurar: traer una carpeta completa del backup a donde elijas,
-               sin depender de que exista (o sea la misma) la carpeta/usuario original -->
+          <!-- Vista restaurar: traer una carpeta completa del backup a donde elijas -->
           <div id="restoreFullView" hidden>
-            <div class="restore-preview-block">
-              <h3>Elige qué restaurar</h3>
-              <p class="hint">
-                Restaura el contenido completo de una carpeta del backup a cualquier
-                ubicación que elijas — útil si formateaste el PC o cambiaste de usuario
-                y ya no existe la carpeta original.
+            <div class="view-header">
+              <div class="eyebrow-row">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 12a9 9 0 1 0 3-6.7"></path><path d="M3 4v5h5"></path>
+                </svg>
+                <span>Restauración completa</span>
+              </div>
+              <h1 class="page-title">Restaurar carpeta</h1>
+              <p class="page-sub">
+                Restaura el contenido completo de una carpeta del backup a cualquier ubicación — útil si formateaste el PC
+                o cambiaste de usuario y ya no existe la carpeta original.
               </p>
-              <div id="restoreFullList" class="list empty">Selecciona un disco con backup.</div>
             </div>
+            <section class="card restore-preview-block">
+              <span class="section-label">Elegí qué restaurar</span>
+              <div id="restoreFullList" class="list empty">Selecciona un disco con backup.</div>
+            </section>
           </div>
-        </section>
-      </section>
+        </main>
+      </div>
+    </div>
 
-      <section class="log-panel" aria-label="Registro">
-        <div class="panel-head compact">
-          <h2>Registro</h2>
-          <button id="clearHistoryBtn" class="ghost">Borrar historial local</button>
-        </div>
-        <ol id="logList"></ol>
-      </section>
-    </main>
+    <!-- Confirmación antes de cifrar: explica los pasos y el alcance. -->
+    <dialog id="encryptDialog" class="kd-dialog" aria-labelledby="encryptDialogTitle">
+      <h2 id="encryptDialogTitle">Cifrar el disco <span id="encryptDialogDrive"></span></h2>
+      <p>
+        Kopia Desk usa BitLocker, el cifrado de Windows. Cuando termine, el disco pedirá contraseña cada vez que lo
+        conectes, en este o en otro equipo con Windows. Tus archivos siguen siendo archivos normales.
+      </p>
+      <ol class="kd-steps">
+        <li>Windows te pedirá permiso de administrador.</li>
+        <li>En una ventana de Kopia Desk eliges la contraseña (mínimo 12 caracteres).</li>
+        <li>Guardas la clave de recuperación <strong>fuera de este disco</strong>. Sin guardarla no se continúa.</li>
+        <li>El cifrado sigue en segundo plano: puedes usar el disco mientras tanto, aunque irá más lento.</li>
+      </ol>
+      <fieldset class="kd-scope">
+        <legend>Qué cifrar</legend>
+        <label>
+          <input type="radio" name="encryptScope" value="used" checked />
+          <span><strong>Solo el espacio usado</strong> — rápido. Recomendado para discos nuevos o vacíos.</span>
+        </label>
+        <label>
+          <input type="radio" name="encryptScope" value="full" />
+          <span><strong>Disco completo</strong> — más lento. Recomendado si el disco tuvo datos antes: cifra también lo borrado.</span>
+        </label>
+      </fieldset>
+      <p class="hint">No desconectes el disco mientras se cifra. Si se desconecta, el cifrado continúa al volver a conectarlo.</p>
+      <div class="kd-dialog-actions">
+        <button id="encryptDialogCancel" class="ghost" type="button">Cancelar</button>
+        <button id="encryptDialogConfirm" class="primary" type="button">Continuar</button>
+      </div>
+    </dialog>
 
     <template id="folderTemplate">
       <article class="folder-card">
@@ -241,6 +492,7 @@
       </article>
     </template>
 
+    <script src="compare.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

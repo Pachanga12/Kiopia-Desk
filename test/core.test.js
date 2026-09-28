@@ -10,6 +10,7 @@ const {
   DEFAULT_EXCLUDES,
   safeName,
   safePath,
+  safeBackupPath,
   compileExcludePatterns,
   isExcluded,
   scanDirectoryRecursive,
@@ -21,6 +22,9 @@ const {
   finishJournal,
   peekJournals,
   checkJournals,
+  TMP_SUFFIX,
+  detectDriveType,
+  getEncryptionStatus,
 } = require("../lib/core.js");
 
 function makeTempDir() {
@@ -79,6 +83,42 @@ test("safePath rechaza rutas vacías o no-string", () => {
   const root = path.resolve("D:/KopiaDesk_Backup");
   assert.throws(() => safePath(root, ""));
   assert.throws(() => safePath(root, null));
+});
+
+// --- safeBackupPath ------------------------------------------------------
+
+test("safeBackupPath acepta rutas dentro de <root>/KopiaDesk_Backup", () => {
+  const driveRoot = path.resolve("D:/");
+  const resolved = safeBackupPath(driveRoot, "KopiaDesk_Backup/Fotos/img.jpg");
+  assert.equal(resolved, path.join(driveRoot, "KopiaDesk_Backup", "Fotos", "img.jpg"));
+});
+
+test("safeBackupPath rechaza rutas fuera de la carpeta de backup aunque sigan dentro del disco", () => {
+  // safePath() sola no detecta esto porque "root" es la raíz del disco: casi
+  // cualquier ruta del disco "empieza con" esa raíz. safeBackupPath agrega la
+  // validación real contra la carpeta de backup.
+  const driveRoot = path.resolve("D:/");
+  assert.throws(
+    () => safeBackupPath(driveRoot, "OtraCarpeta/evil.txt"),
+    /fuera de la carpeta de backup/
+  );
+});
+
+// Estos dos dependen de las letras de unidad de Windows ("D:\"): en Linux
+// "D:/" es una carpeta relativa más y la semántica no aplica.
+const soloWindows = { skip: process.platform !== "win32" && "requiere letras de unidad de Windows" };
+
+test("safeBackupPath rechaza ../.. dentro del mismo disco (safePath sola no lo detectaba con root=raíz del disco)", soloWindows, () => {
+  const driveRoot = path.resolve("D:/");
+  // "../../Windows/System32" desde la raíz del disco resuelve a "D:\Windows\System32":
+  // sigue estando dentro de "D:\", así que safePath() por sí sola lo dejaría pasar.
+  // safeBackupPath lo rechaza porque no está dentro de "D:\KopiaDesk_Backup\".
+  assert.throws(() => safeBackupPath(driveRoot, "../../Windows/System32"), /fuera de la carpeta de backup/);
+});
+
+test("safeBackupPath también rechaza un intento de escapar del disco por completo", soloWindows, () => {
+  const driveRoot = path.resolve("D:/");
+  assert.throws(() => safeBackupPath(driveRoot, "C:\\Windows\\System32"), /fuera del disco destino/);
 });
 
 // --- exclusiones -------------------------------------------------------------
@@ -211,11 +251,13 @@ test("journal: limpia sólo los archivos que quedaron pendientes al interrumpirs
   assert.ok(journalPath);
 
   // Simular la interrupción: a.txt y sub/b.txt se copiaron completos (y quedaron
-  // registrados como done); c.txt quedó a medias sin registrarse.
+  // registrados como done); c.txt estaba sobrescribiéndose: su versión anterior
+  // buena sigue en c.txt y lo parcial quedó en el temporal.
   fs.writeFileSync(path.join(destRoot, "a.txt"), "completo");
   fs.mkdirSync(path.join(destRoot, "sub"), { recursive: true });
   fs.writeFileSync(path.join(destRoot, "sub", "b.txt"), "completo");
-  fs.writeFileSync(path.join(destRoot, "c.txt"), "parcial");
+  fs.writeFileSync(path.join(destRoot, "c.txt"), "versión anterior buena");
+  fs.writeFileSync(path.join(destRoot, "c.txt" + TMP_SUFFIX), "parcial");
   appendJournalDone(journalPath, "a.txt");
   appendJournalDone(journalPath, "sub/b.txt");
 
@@ -226,7 +268,12 @@ test("journal: limpia sólo los archivos que quedaron pendientes al interrumpirs
 
   assert.ok(fs.existsSync(path.join(destRoot, "a.txt")), "los archivos completos no deben borrarse");
   assert.ok(fs.existsSync(path.join(destRoot, "sub", "b.txt")), "los archivos completos no deben borrarse");
-  assert.ok(!fs.existsSync(path.join(destRoot, "c.txt")), "el archivo parcial debe limpiarse");
+  assert.ok(!fs.existsSync(path.join(destRoot, "c.txt" + TMP_SUFFIX)), "el temporal parcial debe limpiarse");
+  assert.equal(
+    fs.readFileSync(path.join(destRoot, "c.txt"), "utf-8"),
+    "versión anterior buena",
+    "problema 5: la única copia buena no debe borrarse"
+  );
   assert.equal(fs.readdirSync(jDir).length, 0, "el journal procesado debe eliminarse");
 });
 
@@ -239,21 +286,22 @@ test("journal: peekJournals informa lo pendiente sin borrar nada", (t) => {
     { relativeDest: "a.txt" },
     { relativeDest: "b.txt" },
   ]);
-  fs.writeFileSync(path.join(destRoot, "b.txt"), "parcial");
+  const partial = path.join(destRoot, "b.txt" + TMP_SUFFIX);
+  fs.writeFileSync(partial, "parcial");
   appendJournalDone(journalPath, "a.txt");
 
-  const peek = peekJournals(jDir);
+  const peek = peekJournals(jDir, destRoot);
   assert.equal(peek.found, 1);
   assert.equal(peek.pendingFiles, 1);
   assert.ok(peek.lastInterruptedAt);
 
-  assert.ok(fs.existsSync(path.join(destRoot, "b.txt")), "peek no debe borrar el archivo parcial");
+  assert.ok(fs.existsSync(partial), "peek no debe borrar el archivo parcial");
   assert.ok(fs.existsSync(journalPath), "peek no debe borrar el journal");
 
   // La limpieza real sigue funcionando después del peek
   const result = checkJournals(jDir, destRoot);
   assert.equal(result.filesCleaned, 1);
-  assert.ok(!fs.existsSync(path.join(destRoot, "b.txt")));
+  assert.ok(!fs.existsSync(partial));
 });
 
 test("journal: peekJournals sin carpeta de journal no encuentra nada", () => {
@@ -322,7 +370,56 @@ test("pickConcurrency: NVMe por busType cuenta como SSD aunque mediaType sea des
   assert.equal(pickConcurrency({ mediaType: "Unknown", busType: "NVMe" }, 10 * 1024 * 1024), 4);
 });
 
+test("pickConcurrency: pendrive USB sin tipo de medio copia de a uno", () => {
+  assert.equal(pickConcurrency({ mediaType: "Unspecified", busType: "USB" }, 1024), 1);
+  assert.equal(pickConcurrency({ mediaType: "SSD", busType: "USB" }, 1024), 8);
+});
+
 test("pickConcurrency: disco desconocido usa valores intermedios", () => {
   assert.equal(pickConcurrency({ mediaType: "Unknown", busType: "Unknown" }, 1024), 4);
   assert.equal(pickConcurrency({ mediaType: "Unknown", busType: "Unknown" }, 10 * 1024 * 1024), 2);
 });
+
+// --- Inyección en argumentos de PowerShell (auditoría, sección 5/8) --------------
+// detectDriveType() y getEncryptionStatus() arman el script de PowerShell con
+// un template string que interpola la letra de unidad directo (sin psQuote,
+// a diferencia de buildHelperLaunchScript). Son seguros igual, por dos motivos
+// distintos:
+//   - detectDriveType: la letra sale de `/^([A-Za-z])/.exec(driveRoot)` (sólo
+//     ancla el INICIO): la captura es siempre un único carácter alfabético,
+//     así que el resto de un driveRoot manipulado se descarta sin más.
+//   - getEncryptionStatus: la regex ancla inicio Y fin
+//     (`/^([A-Za-z]):?[\\/]?$/`), así que cualquier texto extra hace fallar el
+//     match completo y el script ni se arma (retorno anticipado).
+// Estos tests lo demuestran de verdad (no sólo leyendo la regex): un intento
+// real de inyección no crea el archivo que intenta crear.
+
+test(
+  "detectDriveType: un driveRoot con intento de inyección de PowerShell no ejecuta nada extra",
+  soloWindows,
+  async () => {
+    const marker = path.join(os.tmpdir(), "kopia-injection-marker-detect-" + Date.now() + ".txt");
+    const malicious = `C'; New-Item -Path '${marker.replace(/'/g, "''")}' -ItemType File -Force | Out-Null; '`;
+    await detectDriveType(malicious); // no debe lanzar, y sobre todo no debe ejecutar el New-Item
+    assert.ok(!fs.existsSync(marker), "el intento de inyección no debe haber creado el archivo marcador");
+  }
+);
+
+test("detectDriveType: driveRoot que no empieza con una letra no ejecuta ningún script", soloWindows, async () => {
+  const marker = path.join(os.tmpdir(), "kopia-injection-marker-noletter-" + Date.now() + ".txt");
+  const malicious = `'; New-Item -Path '${marker.replace(/'/g, "''")}' -ItemType File -Force | Out-Null; '`;
+  const info = await detectDriveType(malicious);
+  assert.deepEqual(info, { mediaType: "Unknown", busType: "Unknown" });
+  assert.ok(!fs.existsSync(marker));
+});
+
+test(
+  "getEncryptionStatus: un driveRoot con intento de inyección de PowerShell no ejecuta nada extra",
+  soloWindows,
+  async () => {
+    const marker = path.join(os.tmpdir(), "kopia-injection-marker-enc-" + Date.now() + ".txt");
+    const malicious = `C'); New-Item -Path '${marker.replace(/'/g, "''")}' -ItemType File -Force | Out-Null; ('`;
+    await getEncryptionStatus(malicious);
+    assert.ok(!fs.existsSync(marker), "el intento de inyección no debe haber creado el archivo marcador");
+  }
+);

@@ -1,14 +1,23 @@
 {
   "name": "kopia-desk",
-  "version": "1.0.0",
-  "description": "Aplicación de copias de seguridad incrementales para Windows",
+  "version": "2.3.0",
+  "description": "Kopia Desk v2: copias de seguridad incrementales para Windows, con copia verificada y cifrado BitLocker del disco destino",
+  "homepage": "https://github.com/Pachanga12/Kopia-Desk#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Pachanga12/Kopia-Desk.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Pachanga12/Kopia-Desk/issues"
+  },
   "main": "main.js",
   "scripts": {
     "start": "electron .",
     "test": "node --test",
+    "lint": "node --check main.js && node --check preload.js && node --check lib/core.js && node --check renderer/compare.js && node --check renderer/app.js",
     "build": "electron-builder --win"
   },
-  "author": "Kopia Desk",
+  "author": "Pachanga12",
   "license": "MIT",
   "devDependencies": {
     "electron": "^43.0.0",
@@ -16,11 +25,14 @@
   },
   "build": {
     "appId": "com.kopiadesk.app",
-    "productName": "Kopia Desk",
+    "productName": "Kopia Desk v2",
     "win": {
       "target": "nsis",
-      "icon": "assets/Kopia_Desk.png"
+      "icon": "assets/Kopia_Desk_icon.png"
     },
+    "asarUnpack": [
+      "lib/bitlocker-helper.ps1"
+    ],
     "files": [
       "main.js",
       "preload.js",

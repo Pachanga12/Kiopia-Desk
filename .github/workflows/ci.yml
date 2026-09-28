@@ -2,17 +2,20 @@ name: CI
 
 on:
   push:
-    branches: [master]
+    branches: [main]
   pull_request:
-    branches: [master]
+    branches: [main]
+  workflow_dispatch:
 
 jobs:
   test:
-    runs-on: windows-latest
+    name: Lint y tests (${{ matrix.os }}, Node ${{ matrix.node-version }})
+    runs-on: ${{ matrix.os }}
 
     strategy:
       fail-fast: false
       matrix:
+        os: [windows-latest, ubuntu-latest]
         node-version: ["20.x", "22.x"]
 
     steps:
@@ -25,11 +28,17 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: npm
 
-      # Los tests sólo ejercitan lib/core.js (fs, crypto, child_process), así que
-      # se salta la descarga del binario de Electron (--ignore-scripts) para que
-      # el CI sea rápido y no dependa de la red para bajar ~100 MB.
+      # Los tests sólo ejercitan lib/core.js y la lógica de decisión del ayudante
+      # de BitLocker (PowerShell, sin elevación, sólo en Windows), así que se
+      # salta la descarga del binario de Electron (--ignore-scripts).
       - name: Install dependencies
         run: npm ci --ignore-scripts
 
+      - name: Lint (sintaxis)
+        run: npm run lint
+
+      # En Ubuntu se omiten los tests que dependen de Windows (letras de unidad,
+      # PowerShell, bloqueos de archivo reales); el resto de la lógica se prueba
+      # en ambos sistemas.
       - name: Run tests
         run: npm test
