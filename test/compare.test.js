@@ -145,3 +145,55 @@ test("progreso: onProgress se llama cada 20 archivos comparados por hash, no en 
   await compareManifests(current, previous, false, stubHash(hashMap), () => calls++);
   assert.equal(calls, 2, "45 archivos hasheados / cada 20 = 2 llamadas de progreso (en 20 y 40)");
 });
+
+// --- Varios hashes a la vez (velocidad del escaneo) --------------------------------
+
+function escenario() {
+  const previous = {};
+  const current = {};
+  for (let i = 0; i < 30; i++) {
+    const p = "f" + i + ".txt";
+    previous[p] = { path: p, size: 10, lastModified: 1, hash: "h" + i };
+    // pares: fecha tocada con mismo contenido; múltiplos de 3: contenido distinto; 7: nuevo tamaño
+    current[p] = { path: p, fullPath: "C:/x/" + p, size: i % 7 === 0 ? 11 : 10, lastModified: 2 };
+  }
+  current["nuevo.txt"] = { path: "nuevo.txt", fullPath: "C:/x/nuevo.txt", size: 1, lastModified: 1 };
+  previous["borrado.txt"] = { path: "borrado.txt", size: 1, lastModified: 1, hash: "z" };
+  return { previous, current };
+}
+
+function hashFalso(demora, contador) {
+  return async (full) => {
+    contador.enCurso++;
+    contador.max = Math.max(contador.max, contador.enCurso);
+    const i = Number(/f(\d+)\.txt$/.exec(full)[1]);
+    await new Promise((r) => setTimeout(r, demora(i)));
+    contador.enCurso--;
+    if (i === 5) throw new Error("ilegible");
+    return i % 3 === 0 ? "otro" : "h" + i;
+  };
+}
+
+test("compareManifests con 4 a la vez da exactamente el mismo resultado y orden que de a uno", async () => {
+  const a = escenario();
+  const b = escenario();
+  const c1 = { enCurso: 0, max: 0 };
+  const c4 = { enCurso: 0, max: 0 };
+  // Con 4 a la vez los hashes terminan desordenados a propósito.
+  const r1 = await compareManifests(a.current, a.previous, false, hashFalso(() => 1, c1), null, 1);
+  const r4 = await compareManifests(b.current, b.previous, false, hashFalso((i) => (30 - i) % 7, c4), null, 4);
+  const nombres = (r) => ({
+    nuevos: r.newFiles.map((f) => f.path),
+    cambiados: r.changedFiles.map((f) => f.path),
+    tocados: r.touchedFiles.map((f) => f.path),
+    faltan: r.missingFiles.map((f) => f.path),
+  });
+  assert.deepEqual(nombres(r4), nombres(r1));
+  assert.equal(c1.max, 1);
+  assert.equal(c4.max, 4, "nunca más de 4 a la vez");
+  assert.ok(nombres(r1).cambiados.includes("f5.txt"), "un hash que falla cuenta como cambiado");
+  assert.ok(nombres(r1).tocados.includes("f1.txt"), "fecha tocada con mismo contenido");
+  assert.ok(nombres(r1).cambiados.includes("f3.txt"), "contenido distinto");
+  assert.deepEqual(nombres(r1).nuevos, ["nuevo.txt"]);
+  assert.deepEqual(nombres(r1).faltan, ["borrado.txt"]);
+});

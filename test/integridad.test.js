@@ -32,6 +32,11 @@ const {
   startJournal,
   peekJournals,
   checkJournals,
+  createJournalWriter,
+  ensureDir,
+  tmpPathFor,
+  runTasks,
+  pickRestoreConcurrency,
 } = require("../lib/core.js");
 const zlib = require("zlib");
 
@@ -518,3 +523,161 @@ test("isHomeEdition reconoce las variantes de Windows Home", () => {
   assert.ok(!isHomeEdition("Professional"));
   assert.ok(!isHomeEdition(null));
 });
+
+// --- Velocidad (fase 1): menos operaciones por archivo, misma seguridad ---------
+
+test("createJournalWriter junta las líneas y las escribe por lotes (y al final con flush)", (t) => {
+  const [dir] = tempDirs(t, 1);
+  const fp = path.join(dir, "j.jsonl");
+  fs.writeFileSync(fp, JSON.stringify({ version: 2, planned: [] }) + "\n");
+  const w = createJournalWriter(fp, { maxLines: 3, maxMs: 60000 });
+  const lineas = () => fs.readFileSync(fp, "utf-8").split("\n").filter(Boolean).length;
+  w.add("a");
+  w.add("b");
+  assert.equal(lineas(), 1, "todavía sin escribir");
+  w.add("c");
+  assert.equal(lineas(), 4, "al llegar a 3 se escriben juntas");
+  w.add("d");
+  w.flush();
+  assert.equal(lineas(), 5);
+});
+
+test("diario por lotes: un corte con líneas sin escribir no borra archivos terminados, sólo temporales", (t) => {
+  const [destRoot] = tempDirs(t, 1);
+  const journalDir = path.join(destRoot, ".kopia-data", "journal");
+  const rels = ["KopiaDesk_Backup/D/a.txt", "KopiaDesk_Backup/D/b.txt", "KopiaDesk_Backup/D/c.txt"];
+  const fp = startJournal(journalDir, rels.map((r) => ({ relativeDest: r })));
+  const w = createJournalWriter(fp, { maxLines: 50, maxMs: 60000 });
+  fs.mkdirSync(path.join(destRoot, "KopiaDesk_Backup", "D"), { recursive: true });
+  // a y b terminaron (renombrados) pero su línea quedó en memoria; c quedó a medias.
+  fs.writeFileSync(path.join(destRoot, rels[0]), "a completo");
+  fs.writeFileSync(path.join(destRoot, rels[1]), "b completo");
+  w.add(rels[0]);
+  w.add(rels[1]);
+  fs.writeFileSync(tmpPathFor(path.join(destRoot, rels[2])), "c a medias");
+  // Corte: nunca se llama a flush().
+  const res = checkJournals(journalDir, destRoot);
+  assert.equal(res.filesCleaned, 1, "sólo el temporal de c");
+  assert.equal(fs.readFileSync(path.join(destRoot, rels[0]), "utf-8"), "a completo");
+  assert.equal(fs.readFileSync(path.join(destRoot, rels[1]), "utf-8"), "b completo");
+  assert.ok(!fs.existsSync(tmpPathFor(path.join(destRoot, rels[2]))));
+});
+
+test("copyFileVerified sobrescribe un temporal de sólo lectura que dejó un intento anterior", async (t) => {
+  const [srcDir, destDir] = tempDirs(t, 2);
+  const src = path.join(srcDir, "x.txt");
+  const dest = path.join(destDir, "x.txt");
+  fs.writeFileSync(src, "contenido nuevo");
+  const tmp = tmpPathFor(dest);
+  fs.writeFileSync(tmp, "resto de un corte");
+  fs.chmodSync(tmp, 0o444);
+  await copyFileVerified(src, dest);
+  assert.equal(fs.readFileSync(dest, "utf-8"), "contenido nuevo");
+  assert.ok(!fs.existsSync(tmp));
+});
+
+test("ensureDir crea la carpeta una sola vez por lote", async (t) => {
+  const [dir] = tempDirs(t, 1);
+  const made = new Set();
+  const d = path.join(dir, "a", "b");
+  await ensureDir(d, made);
+  assert.ok(fs.existsSync(d));
+  fs.rmSync(path.join(dir, "a"), { recursive: true });
+  await ensureDir(d, made); // recordada: no se vuelve a crear
+  assert.ok(!fs.existsSync(d));
+  await ensureDir(d, new Set()); // en otro lote sí
+  assert.ok(fs.existsSync(d));
+});
+
+// --- Velocidad (fase 2): restaurar leyendo el origen una sola vez ---------------
+
+test("copia de una sola lectura: archivo de varios bloques, hash correcto, fecha conservada y sin temporales", async (t) => {
+  const [srcDir, destDir] = tempDirs(t, 2);
+  const src = path.join(srcDir, "grande.bin");
+  const dest = path.join(destDir, "grande.bin");
+  const data = crypto.randomBytes(20 * 1024 * 1024 + 123); // más de 2 bloques de 8 MB
+  fs.writeFileSync(src, data);
+  const past = new Date("2024-03-15T10:20:30Z");
+  fs.utimesSync(src, past, past);
+  const r = await copyFileVerified(src, dest, { mode: "single" });
+  assert.equal(r.hash, crypto.createHash("sha256").update(data).digest("hex"));
+  assert.ok(fs.readFileSync(dest).equals(data));
+  assert.equal(Math.round(fs.statSync(dest).mtimeMs / 1000), Math.round(past.getTime() / 1000));
+  assert.ok(!fs.existsSync(tmpPathFor(dest)));
+});
+
+test("copia de una sola lectura: archivo vacío y temporal de sólo lectura de un intento anterior", async (t) => {
+  const [srcDir, destDir] = tempDirs(t, 2);
+  const vacio = path.join(srcDir, "vacio.txt");
+  fs.writeFileSync(vacio, "");
+  const r = await copyFileVerified(vacio, path.join(destDir, "vacio.txt"), { mode: "single" });
+  assert.equal(r.size, 0);
+  assert.equal(fs.readFileSync(path.join(destDir, "vacio.txt"), "utf-8"), "");
+  const src = path.join(srcDir, "x.txt");
+  const dest = path.join(destDir, "x.txt");
+  fs.writeFileSync(src, "nuevo");
+  fs.writeFileSync(tmpPathFor(dest), "resto");
+  fs.chmodSync(tmpPathFor(dest), 0o444);
+  await copyFileVerified(src, dest, { mode: "single" });
+  assert.equal(fs.readFileSync(dest, "utf-8"), "nuevo");
+  assert.ok(!fs.existsSync(tmpPathFor(dest)));
+});
+
+// --- Velocidad (fase 3): cuántos archivos a la vez ----------------------------
+
+const esperarMs = (ms) => new Promise((r) => setTimeout(r, ms));
+
+test("runTasks adaptativo elige 2 a la vez cuando es claramente más rápido (esperas que se solapan)", async () => {
+  const hechos = [];
+  const items = Array.from({ length: 60 }, (_, i) => i);
+  const r = await runTasks(items, async (i) => { await esperarMs(8); hechos.push(i); }, { concurrency: 1, adaptive: true, probeSize: 10 });
+  assert.equal(r.concurrency, 2);
+  assert.equal(hechos.length, 60, "se procesan todos, también los de la prueba");
+  assert.deepEqual([...hechos].sort((a, b) => a - b), items);
+});
+
+test("runTasks adaptativo se queda en 1 cuando 2 a la vez empeora (como la USB NTFS medida)", async () => {
+  let enCurso = 0;
+  const items = Array.from({ length: 60 }, (_, i) => i);
+  const r = await runTasks(items, async () => {
+    enCurso++;
+    await esperarMs(enCurso > 1 ? 80 : 5); // con 2 a la vez cada una tarda mucho más (holgado: el temporizador de Windows redondea a ~15 ms)
+    enCurso--;
+  }, { concurrency: 1, adaptive: true, probeSize: 10 });
+  assert.equal(r.concurrency, 1);
+  assert.ok(r.probe.msDe2en2 > r.probe.msDe1en1);
+});
+
+test("runTasks sin adaptativo (o con pocos elementos) usa la concurrencia pedida y procesa todo", async () => {
+  let max = 0;
+  let enCurso = 0;
+  const items = Array.from({ length: 20 }, (_, i) => i);
+  const r = await runTasks(items, async () => { enCurso++; max = Math.max(max, enCurso); await esperarMs(3); enCurso--; }, { concurrency: 3, adaptive: true, probeSize: 10 });
+  assert.equal(r.concurrency, 3);
+  assert.equal(r.probe, null);
+  assert.equal(max, 3);
+});
+
+test("pickRestoreConcurrency: 4 a la vez con archivos pequeños, 1 con grandes", () => {
+  assert.equal(pickRestoreConcurrency(30 * 1024), 4);
+  assert.equal(pickRestoreConcurrency(256 * 1024 * 1024), 1);
+  assert.equal(pickRestoreConcurrency(0), 1);
+});
+
+// --- Revisión: un temporal sobrante que es un hardlink no se reescribe en el sitio --
+
+for (const mode of ["native", "single"]) {
+  test("temporal sobrante enlazado a otro archivo del backup: la copia (" + mode + ") no lo cambia", async (t) => {
+    const [srcDir, bk] = tempDirs(t, 2);
+    const otro = path.join(bk, "otro-archivo-del-backup.bin");
+    fs.writeFileSync(otro, "contenido bueno de otro backup");
+    const dest = path.join(bk, "x.bin");
+    fs.linkSync(otro, tmpPathFor(dest)); // lo que deja linkAtomic tras un corte
+    const src = path.join(srcDir, "x.bin");
+    fs.writeFileSync(src, "contenido nuevo de x");
+    await copyFileVerified(src, dest, { mode });
+    assert.equal(fs.readFileSync(dest, "utf-8"), "contenido nuevo de x");
+    assert.equal(fs.readFileSync(otro, "utf-8"), "contenido bueno de otro backup", "el otro archivo sigue intacto");
+    assert.ok(!fs.existsSync(tmpPathFor(dest)));
+  });
+}

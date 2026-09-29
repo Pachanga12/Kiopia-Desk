@@ -32,12 +32,13 @@ Kopia-Desk/
 │
 ├── assets/Kopia_Desk_icon.png ← Icono de la app y del instalador
 │
-├── test/                      ← node --test (113 tests)
+├── test/                      ← node --test (154 tests)
 │   ├── core.test.js           ← Lógica base: rutas, exclusiones, escaneo, hash, journal
 │   ├── integridad.test.js     ← Problemas 1–5: copia atómica, dedup, escrituras atómicas
 │   ├── bitlocker.test.js      ← Lanzamiento del ayudante: argumentos, entrecomillado, estado
-│   └── disco-sistema.test.js  ← Protección del disco del sistema y cambios de disco
-│                                (misma tabla de escenarios evaluada por la app y el ayudante)
+│   ├── disco-sistema.test.js  ← Protección del disco del sistema y cambios de disco
+│   │                            (misma tabla de escenarios evaluada por la app y el ayudante)
+│   └── excluir.test.js        ← Excluir carpetas/archivos concretos y "Último backup"
 │
 ├── docs/
 │   ├── arquitectura.md        ← Este archivo
@@ -130,9 +131,13 @@ Kopia-Desk/
 |---|---|
 | `drives:list` | Discos con espacio, sistema de archivos, disco físico, si es del sistema e ID de volumen |
 | `dialog:select-folder` / `dialog:select-restore-target` | Diálogos nativos; lo elegido queda autorizado |
+| `dialog:select-exclude` | Elegir carpetas o archivos que no se copian: sólo acepta rutas dentro de una carpeta de origen (y no la carpeta entera) |
 | `folders:quick-list` | Carpetas típicas del usuario que existan (quedan autorizadas) |
 | `config:default-excludes` | Exclusiones por defecto |
-| `fs:scan-directory` | Escaneo recursivo: `{ files, excluded, skipped }` |
+| `fs:scan-directory` | Escaneo recursivo con patrones y rutas excluidas: `{ files, excluded, skipped }` |
+| `fs:hash-concurrency` | Cuántos SHA-256 calcular a la vez al escanear, según el disco del origen (SSD/NVMe 4, HDD 1, otros 2) |
+| `fs:measure-directory` | Peso de una carpeta de origen con las exclusiones: `{ bytes, files }` |
+| `drives:changed` (evento del proceso principal) | Se conectó o quitó un disco: llega de `WM_DEVICECHANGE` (`DBT_DEVICEARRIVAL`, `DBT_DEVICEREMOVECOMPLETE` o `DBT_DEVNODES_CHANGED`) y sólo se envía si la lista de discos (letra e identidad de volumen) cambió de verdad |
 | `fs:hash-file` / `fs:quick-hash` | SHA-256 completo / hash rápido (sólo dentro de orígenes autorizados) |
 | `manifest:load` / `manifest:save` | Manifiesto con respaldo `.prev.json` y aviso si estaba dañado |
 | `sources:remember` / `sources:known-paths` | Ruta local recordada por carpeta respaldada |
@@ -140,13 +145,20 @@ Kopia-Desk/
 | `backup:plan-concurrency` | Tipo de disco y concurrencia sugerida |
 | `backup:copy-files` | Copia verificada con dedup, journal y progreso |
 | `backup:copy-versions` | Versiones anteriores comprimidas, con journal |
-| `log:save` | Log JSON de la operación (copiados, fallidos, omitidos) |
+| `log:save` | Log JSON de la operación (copiados, fallidos, omitidos y la marca `run` de la corrida) |
+| `backup:last-run` | Último backup del disco (fecha, carpetas, copiados, fallidos), leído de esos logs |
+| `backup:open-folder` | Abre `KopiaDesk_Backup` del disco en el Explorador |
+| `copy:cancel` | Detener: marca el `opId` de la copia; backup, versiones y restaurar dejan de empezar archivos nuevos (el que está en curso termina) y devuelven `stopped` |
+| `progress` (evento) | Además de `current`/`total`, `bytes` copiados en la llamada (tiempo restante y velocidad); fases `backup`, `versions`, `restore` |
+| `app:busy` / `app:notify` | La interfaz avisa si está copiando (para cerrar bien) y pide un aviso de Windows si la ventana no está a la vista |
+| `app:get-close-action` / `app:set-close-action` | Qué hace la X: `ask`, `background` o `quit` (en `kopia-desk-window.json`) |
 | `restore:scan` / `restore:full-list` / `restore:list-sources` / `restore:copy-files` | Comparar y restaurar |
 | `encryption:status` | Estado BitLocker sin elevación + `systemProtected` |
-| `encryption:encrypt` / `encryption:lock` | Lanzan el ayudante elevado (requieren el ID de volumen elegido) |
+| `encryption:encrypt` / `encryption:lock` | Lanzan el ayudante elevado (requieren el ID de volumen elegido); cifrar recibe la contraseña del panel y la entrega protegida con DPAPI |
 | `encryption:job-status` | Progreso del ayudante (archivo de estado) y si su proceso sigue vivo |
 | `encryption:unlock` | Cuadro de desbloqueo de Windows |
 | `encryption:open-panel` | Panel de BitLocker de Windows (para estados suspendido o a medio configurar) |
+| `drive:eject` | Expulsar el disco destino (quitar hardware de forma segura), comprobando identidad y que no sea el disco del sistema |
 | `settings:load` / `settings:save` | Configuración del usuario |
 | `window:*` | Controles de la ventana sin marco |
 
@@ -157,13 +169,41 @@ Kopia-Desk/
 - **Rutas**: `safeName`, `safePath`, `safeBackupPath`, `isInside`.
 - **Escrituras atómicas**: `atomicWriteFileSync`, `readJsonWithFallback`.
 - **Escaneo**: `scanDirectoryRecursive` con informe de excluidos y omitidos
-  (enlaces/junctions, sin permiso, ilegibles).
-- **Copia**: `copyFileVerified` (copia nativa a `.kopia-tmp`, `fsync`, SHA-256 del
-  origen y del temporal en paralelo, comprobación de que el origen no cambió,
-  fechas preservadas, `rename`), con hasta 3 reintentos con espera creciente
-  ante bloqueos pasajeros (`EBUSY`, `EAGAIN`, `ETXTBSY`) o una verificación
-  fallida, siempre sobre el temporal; `linkAtomic`, `copyOneTask`,
-  `writeVersionAtomic` (mismo patrón temporal + `rename`, pero con gzip).
+  (enlaces/junctions, sin permiso, ilegibles). `compileExcludes` junta los
+  patrones por nombre y las rutas concretas excluidas (relativas a la carpeta
+  escaneada, sin distinguir mayúsculas).
+- **Detener**: `runTasks` acepta `shouldStop`; deja de empezar tareas y espera
+  las que están en curso.
+- **Último backup**: `summarizeLastBackup` junta los logs de la corrida más
+  reciente (misma marca `run`; un log viejo sin ella cuenta solo).
+- **Copia**: `copyFileVerified` con dos modos. **Backup** (`native`): copia nativa
+  a `.kopia-tmp` (CopyFileW, que respeta los archivos abiertos en exclusiva por
+  otro programa), `fsync`, SHA-256 del origen y del temporal en paralelo.
+  **Restaurar** (`single`): una sola lectura del origen en bloques de 8 MB,
+  calculando el SHA-256 mientras se escribe, y relectura del temporal. En los
+  dos: comprobación de que el origen no cambió, fecha preservada y `rename`;
+  hasta 3 reintentos con espera creciente ante bloqueos pasajeros (`EBUSY`,
+  `EAGAIN`, `ETXTBSY`) o una verificación fallida, siempre sobre el temporal;
+  `linkAtomic`, `copyOneTask`, `writeVersionAtomic` (mismo patrón temporal +
+  `rename`, pero con gzip).
+- **Velocidad**: `createJournalWriter` (diario por lotes: tras un corte sólo se
+  borran temporales, así que no hace falta anotar cada archivo al instante),
+  `ensureDir` (cada carpeta una vez por lote), `runTasks` (con muchos archivos
+  pequeños de a uno, mide 100 de 1 en 1 y 100 de 2 en 2 y sigue con lo más
+  rápido) y `pickRestoreConcurrency` (4 a la vez al restaurar archivos
+  pequeños). El índice de dedup se guarda cada 30 s y el progreso se avisa como
+  mucho cada 100 ms.
+- **Consultas a Windows**: `runPowerShellQuery` usa un PowerShell que queda
+  abierto mientras la app lo está (`startPowerShellWorker`), porque la primera
+  consulta de discos de cada PowerShell nuevo carga módulos de almacenamiento
+  (~1,45 s; en uno abierto, ~0,25 s). Sólo ejecuta las consultas fijas de
+  `lib/core.js` (listar discos, tipo de disco, estado de cifrado), de a una;
+  si falla o tarda demasiado se cierra y la consulta se lanza aparte, como
+  antes. La primera lista de discos se pide al arrancar, en paralelo con la
+  ventana, y el tipo de cada disco se recuerda por su identidad de volumen.
+- **Escaneo**: `compareManifests` (renderer/compare.js) calcula los SHA-256 de
+  los archivos con fecha cambiada varios a la vez según el disco del origen
+  (`fs:hash-concurrency`); el resultado sale en el mismo orden que de a uno.
 - **Deduplicación**: `ContentIndex` (hash → ruta y ruta → hashes; toda escritura
   olvida los hashes viejos de esa ruta), `indexEntryMatches` (verifica por
   tamaño y SHA-256 antes de enlazar).
@@ -174,17 +214,22 @@ Kopia-Desk/
   `pickConcurrency` (un archivo a la vez en pendrives).
 - **BitLocker**: `getEncryptionStatus` (propiedad de shell, sin elevación),
   `buildHelperLaunchScript` / `launchBitLockerHelper`, `readHelperStatus`,
-  `isProcessAlive`, `unlockWithWindowsPrompt`.
+  `isProcessAlive`, `unlockWithWindowsPrompt`, `validateNewPassword` y
+  `protectPasswordForHelper` (contraseña del panel protegida con DPAPI).
+- **Expulsar**: `ejectDrive` lanza `lib/eject-drive.ps1` (sin elevar) y
+  `parseEjectOutput` traduce el resultado y los vetos de Windows.
 - **Journal**: `startJournal` (v2), `peekJournals`, `checkJournals` (en v2 sólo
   borra `.kopia-tmp`).
 
 ## `lib/bitlocker-helper.ps1`
 
 Corre elevado sólo para `-Action Encrypt` o `-Action Lock`. Parámetros sin
-secretos: acción, letra, ruta del archivo de estado e ID de volumen.
+secretos: acción, letra, ruta del archivo de estado, ID de volumen y, al cifrar,
+la ruta del `.pw` con la contraseña del panel protegida con DPAPI.
 
-- **Cifrar**: comprueba el destino, pide la contraseña en una ventana propia
-  (mínimo 12 caracteres, indicador de fortaleza), genera la clave de
+- **Cifrar**: lo primero lee el `.pw` (sólo de la carpeta del archivo de
+  estado) y lo borra; si no se puede usar, pide la contraseña en una ventana
+  propia (mínimo 8 caracteres, el de BitLocker). Comprueba el destino, genera la clave de
   recuperación (RNG criptográfico, formato BitLocker) y obliga a guardarla fuera
   del disco; **vuelve a comprobar el destino** y activa BitLocker (AES-256,
   primero la clave de recuperación, luego la contraseña), confirma los
@@ -196,21 +241,39 @@ secretos: acción, letra, ruta del archivo de estado e ID de volumen.
   sistema.
 - `-Action Import` sólo carga las funciones (para tests).
 
+## `lib/eject-drive.ps1`
+
+Corre sin elevar. Del volumen saca el número de disco, busca ese disco entre los
+dispositivos de Windows y sube hasta el primero marcado como extraíble; sólo
+entonces pide `CM_Request_Device_Eject`. Escribe `KD-EJECT:OK`,
+`KD-EJECT:VETO:<tipo>:<detalle>` o `KD-EJECT:ERR:<código>:<mensaje>`.
+
 ---
 
 ## Interfaz (`renderer/`)
 
-- **Backup**: origen, destino (con panel de cifrado), opciones, escaneo y
-  resultados por carpeta (nuevos, cambiados, eliminados y omitidos), avisos de
-  espacio, FAT32, cambios sospechosos y backup interrumpido.
-- **Panel de cifrado**: según el estado muestra "Cifrar este disco",
-  "Desbloquear", "Bloquear ahora", "Bloquear el disco al terminar el backup" o,
-  para el disco del sistema, sólo una nota sin opciones.
+- **Backup**: origen (con el peso de cada carpeta) y, debajo, el **Resumen**
+  (seleccionado, a copiar, libre, "Cabe / No cabe" y los botones Escanear y
+  Copiar); destino (selector con ↻, panel de cifrado); opciones; resultados por
+  carpeta (nuevos, cambiados, eliminados y omitidos); avisos de FAT32, cambios
+  sospechosos y backup interrumpido. Una barra fija (`#actionDock`) repite el
+  veredicto y los botones mientras los del Resumen no se ven
+  (IntersectionObserver). Bajo el Resumen, la tarjeta **Excluir** (carpetas o
+  archivos elegidos con el explorador y, plegados, los patrones por nombre).
+  En la tarjeta del disco, **Último backup** con "Abrir carpeta".
+- **Panel de cifrado**: según el estado muestra los campos de contraseña y
+  "Cifrar este disco", "Desbloquear", "Bloquear ahora", "Bloquear el disco al
+  terminar el backup" y "Expulsar" o, para el disco del sistema, sólo una nota
+  sin opciones. Sin cifrar, "Omitir por ahora" lo pliega a una línea
+  (`data-collapsed`, recordado por `volumeId` en `encryptionSkipped`). Cada
+  campo de contraseña tiene un ojo para mostrarla; ↻ vuelve a comprobar.
 - **Comparar** y **Restaurar**: como en la v2 original, con copia verificada.
 
 Estado principal (`state`), además de lo de la v2 original: `encryption`
-(estado del destino), `encryptionAck` (continuar sin cifrar), `encryptionJob`
-(operación de BitLocker en curso). `destination` incluye `fileSystem`,
+(estado del destino; el cifrado es opcional y sólo un disco bloqueado impide copiar), `encryptionJob`
+(operación de BitLocker en curso), `excludePaths` (rutas excluidas) y
+`encryptionSkipped` (discos con el cifrado omitido); los dos últimos se guardan
+en la configuración. `destination` incluye `fileSystem`,
 `maxFileSize`, `volumeId` y `onSystemDisk`.
 
 ---

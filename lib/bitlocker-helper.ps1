@@ -2,8 +2,11 @@
 #
 # La app lo lanza ELEVADO (Start-Process -Verb RunAs) sólo para la operación
 # pedida; la app en sí nunca corre como administrador. Nada secreto viaja por
-# la línea de comandos ni pasa por Electron:
-#   - la contraseña se pide en una ventana propia de este proceso;
+# la línea de comandos:
+#   - la contraseña se escribe en el panel de la app, que la protege con DPAPI
+#     (ligada al usuario de Windows) y la deja en -PasswordFile; aquí se lee,
+#     se borra el archivo en el acto y se usa como SecureString. Si no se puede
+#     leer (p. ej. el permiso lo dio otra cuenta), se pide en una ventana propia;
 #   - la clave de recuperación se genera aquí, se muestra aquí y sólo se
 #     escribe donde el usuario elija guardarla (nunca en el disco a cifrar).
 # El progreso se comunica escribiendo JSON (sin secretos) en -StatusFile, que
@@ -18,7 +21,9 @@ param(
   [switch]$FullDisk,
   # Identidad del volumen que el usuario eligió (Get-Volume UniqueId). Antes de
   # actuar se comprueba que la letra sigue apuntando a este mismo volumen.
-  [ValidatePattern('^\\\\\?\\Volume\{[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\}\\$')] [string]$VolumeId
+  [ValidatePattern('^\\\\\?\\Volume\{[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\}\\$')] [string]$VolumeId,
+  # Contraseña elegida en la app, protegida con DPAPI (sólo al cifrar).
+  [string]$PasswordFile
 )
 
 $ErrorActionPreference = 'Stop'
@@ -66,6 +71,11 @@ function Test-KdRecoveryPassword([string]$Key) {
   return $true
 }
 
+# Mínimo de la contraseña: 8 caracteres, el mismo que exige BitLocker por
+# defecto para discos de datos. Si una directiva de grupo pide más, BitLocker
+# rechazará la contraseña al cifrar y el error se muestra en la app.
+$KdMinPasswordLength = 8
+
 # 0-5: largo >= 12, largo >= 16, mayúsculas y minúsculas, dígitos, símbolos.
 function Get-KdPasswordScore([string]$Password) {
   $score = 0
@@ -78,6 +88,32 @@ function Get-KdPasswordScore([string]$Password) {
 }
 
 function Get-KdMountPoint { return ($Drive.ToUpper() + ':') }
+
+# Lee la contraseña que la app protegió con DPAPI y BORRA el archivo siempre,
+# se pueda leer o no. Sólo se acepta un archivo que esté en la misma carpeta que
+# el de estado (la carpeta de la app). Devuelve un SecureString, o $null si no
+# se pudo usar: entonces se pide la contraseña en la ventana propia.
+function Read-KdPasswordFile([string]$Path) {
+  if (-not $Path -or -not $StatusFile) { return $null }
+  # Este proceso es administrador: nunca se lee ni se borra nada fuera de la
+  # carpeta de la app, ni un archivo que no sea el .pw esperado.
+  try {
+    $full = [System.IO.Path]::GetFullPath($Path)
+    $dir = [System.IO.Path]::GetDirectoryName($full)
+    $statusDir = [System.IO.Path]::GetDirectoryName([System.IO.Path]::GetFullPath($StatusFile))
+  } catch { return $null }
+  if ($dir -ine $statusDir -or [System.IO.Path]::GetExtension($full) -ine '.pw') { return $null }
+  try {
+    $blob = [System.IO.File]::ReadAllText($full).Trim()
+    $secure = ConvertTo-SecureString -String $blob
+    if ($secure.Length -lt $KdMinPasswordLength) { $secure.Dispose(); return $null }
+    return $secure
+  } catch {
+    return $null
+  } finally {
+    try { [System.IO.File]::Delete($full) } catch { }
+  }
+}
 
 # Decisión pura (sin consultar Windows, para poder probarla con datos simulados):
 # ¿se puede cifrar/bloquear la letra? Sólo si sigue siendo el volumen esperado,
@@ -177,7 +213,7 @@ function Show-KdPasswordDialog([string]$DriveLabel) {
 
   $form.Controls.Add((New-KdLabel ("Elige la contraseña del disco $mp $DriveLabel. Te la pedirá cada vez que lo conectes, " +
         'en este o en otro equipo con Windows.') 16 14 438 44))
-  $form.Controls.Add((New-KdLabel 'Contraseña (mínimo 12 caracteres)' 16 66 438 22))
+  $form.Controls.Add((New-KdLabel "Contraseña (mínimo $KdMinPasswordLength caracteres)" 16 66 438 22))
   $pw1 = New-Object System.Windows.Forms.TextBox
   $pw1.UseSystemPasswordChar = $true
   $pw1.Location = New-Object System.Drawing.Point(16, 88)
@@ -213,9 +249,12 @@ function Show-KdPasswordDialog([string]$DriveLabel) {
     $score = Get-KdPasswordScore $p
     if ($p.Length -eq 0) {
       $strength.Text = ''
-    } elseif ($p.Length -lt 12) {
-      $strength.Text = "Muy corta: faltan $(12 - $p.Length) caracteres"
+    } elseif ($p.Length -lt $KdMinPasswordLength) {
+      $strength.Text = "Muy corta: faltan $($KdMinPasswordLength - $p.Length) caracteres"
       $strength.ForeColor = [System.Drawing.Color]::Firebrick
+    } elseif ($p.Length -lt 12) {
+      $strength.Text = 'Fortaleza: aceptable (con 12 o más caracteres es más segura)'
+      $strength.ForeColor = [System.Drawing.Color]::DarkOrange
     } elseif ($score -le 2) {
       $strength.Text = 'Fortaleza: aceptable (agrega mayúsculas, números o símbolos)'
       $strength.ForeColor = [System.Drawing.Color]::DarkOrange
@@ -228,7 +267,7 @@ function Show-KdPasswordDialog([string]$DriveLabel) {
       $strength.Text = 'Las contraseñas no coinciden'
       $strength.ForeColor = [System.Drawing.Color]::Firebrick
     }
-    $ok.Enabled = ($p.Length -ge 12) -and $match
+    $ok.Enabled = ($p.Length -ge $KdMinPasswordLength) -and $match
   }
   $pw1.Add_TextChanged($update)
   $pw2.Add_TextChanged($update)
@@ -387,6 +426,17 @@ function Watch-KdEncryption([string]$MountPoint, [int]$IntervalMs = 2000) {
 }
 
 function Invoke-KdEncrypt {
+  # Lo primero: leer (y borrar) la contraseña que mandó la app, antes de
+  # cualquier comprobación que pueda cortar el proceso.
+  $secure = Read-KdPasswordFile $PasswordFile
+  try {
+    Invoke-KdEncryptSteps $secure
+  } finally {
+    if ($null -ne $secure) { $secure.Dispose() }
+  }
+}
+
+function Invoke-KdEncryptSteps([securestring]$FromApp) {
   Assert-KdTarget
   $mp = Get-KdMountPoint
   if (-not (Get-Command Enable-BitLocker -ErrorAction SilentlyContinue)) {
@@ -400,14 +450,32 @@ function Invoke-KdEncrypt {
   try { $label = [string](Get-Volume -DriveLetter $Drive).FileSystemLabel } catch { }
   if ($label) { $label = "($label)" }
 
-  Write-KdStatus @{ phase = 'waiting-password' }
-  $password = Show-KdPasswordDialog $label
-  if ($null -eq $password) { Write-KdStatus @{ phase = 'cancelled' }; return }
+  $secure = $FromApp
+  $ownSecure = $false
+  if ($null -eq $secure) {
+    # La app no mandó contraseña o no se pudo leer: se pide aquí.
+    if ($PasswordFile) { Write-KdStatus @{ phase = 'waiting-password'; fallback = $true } }
+    else { Write-KdStatus @{ phase = 'waiting-password' } }
+    $password = Show-KdPasswordDialog $label
+    if ($null -eq $password) { Write-KdStatus @{ phase = 'cancelled' }; return }
+    $secure = ConvertTo-SecureString -String $password -AsPlainText -Force
+    $password = $null
+    $ownSecure = $true
+  }
 
+  try {
+    Invoke-KdEncryptWithPassword $secure $label
+  } finally {
+    if ($ownSecure) { $secure.Dispose() }
+  }
+}
+
+function Invoke-KdEncryptWithPassword([securestring]$SecurePassword, [string]$label) {
+  $mp = Get-KdMountPoint
   $key = New-KdRecoveryPassword
   Write-KdStatus @{ phase = 'waiting-recovery' }
   if (-not (Show-KdRecoveryDialog $key $label)) {
-    $password = $null
+    $key = $null
     Write-KdStatus @{ phase = 'cancelled' }
     return
   }
@@ -421,17 +489,13 @@ function Invoke-KdEncrypt {
       throw (New-KdError 'already' 'El disco ya tiene BitLocker configurado. No se hizo nada.')
     }
   } catch {
-    $password = $null
     $key = $null
     throw
   }
 
   Write-KdStatus @{ phase = 'enabling' }
-  $secure = ConvertTo-SecureString -String $password -AsPlainText -Force
-  $password = $null
-  Enable-KdBitLocker -MountPoint $mp -SecurePassword $secure -RecoveryPassword $key -FullDisk:$FullDisk
+  Enable-KdBitLocker -MountPoint $mp -SecurePassword $SecurePassword -RecoveryPassword $key -FullDisk:$FullDisk
   $key = $null
-  $secure.Dispose()
   Watch-KdEncryption $mp
 }
 

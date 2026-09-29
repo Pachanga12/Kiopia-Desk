@@ -1,6 +1,6 @@
 "use strict";
 
-const { app, BrowserWindow, ipcMain, dialog, nativeTheme, screen } = require("electron");
+const { app, BrowserWindow, ipcMain, dialog, nativeTheme, screen, shell, Tray, Menu, nativeImage, Notification } = require("electron");
 const path = require("path");
 // "original-fs": el fs sin el parche de Electron que trata los .asar como
 // carpetas (ver lib/core.js). Las rutas del backup pueden contener .asar.
@@ -14,6 +14,8 @@ const {
   atomicWriteFileSync,
   readJsonWithFallback,
   compileExcludePatterns,
+  compileExcludes,
+  summarizeLastBackup,
   createScanReport,
   scanDirectoryRecursive,
   hashFileAsync,
@@ -24,6 +26,7 @@ const {
   ContentIndex,
   copyOneTask,
   listDrives,
+  stopPowerShellWorker,
   fileSystemInfo,
   getEncryptionStatus,
   openBitLockerPanel,
@@ -35,11 +38,18 @@ const {
   readHelperStatus,
   isProcessAlive,
   unlockWithWindowsPrompt,
+  validateNewPassword,
+  protectPasswordForHelper,
+  ejectScriptPath,
+  ejectDrive,
   detectDriveType,
   pickConcurrency,
   hideFolder,
   startJournal,
-  appendJournalDone,
+  createJournalWriter,
+  ensureDir,
+  runTasks,
+  pickRestoreConcurrency,
   finishJournal,
   peekJournals,
   checkJournals,
@@ -52,9 +62,38 @@ const BACKUP_CONCURRENCY = 3;
 // archivos ya copiados y journalados quedan completos igual, pero sin este
 // guardado periódico el índice en disco no se enteraba de ellos y se perdía
 // la oportunidad de deduplicarlos la próxima vez (no se pierde nada, sólo se
-// vuelve a copiar en vez de enlazar). Cada cuántos archivos es un balance
-// entre acotar esa ventana y no hacer un fsync de más por archivo.
-const INDEX_SAVE_INTERVAL = 25;
+// vuelve a copiar en vez de enlazar). Se guarda por tiempo y no cada N
+// archivos: con muchos archivos pequeños, reescribir el índice entero con
+// fsync cada 25 archivos pesaba en la USB.
+const INDEX_SAVE_INTERVAL_MS = 30 * 1000;
+// El progreso se manda a la interfaz como mucho cada tanto (y siempre el último).
+const PROGRESS_INTERVAL_MS = 100;
+
+// Avisa el progreso limitado en el tiempo: con miles de archivos pequeños, un
+// mensaje por archivo sólo carga la interfaz. "bytes" son los bytes ya copiados
+// en esta llamada (la interfaz calcula con ellos el tiempo que falta).
+function progressSender(event, phase, total) {
+  let last = 0;
+  let pending = null; // el último aviso que se saltó por el límite de tiempo
+  const send = (current, file, bytes) => {
+    last = Date.now();
+    pending = null;
+    event.sender.send("progress", { phase, current, total, file, bytes, percent: Math.round((current / total) * 100) });
+  };
+  const progress = (current, file, bytes = 0) => {
+    if (current < total && Date.now() - last < PROGRESS_INTERVAL_MS) {
+      pending = [current, file, bytes];
+      return;
+    }
+    send(current, file, bytes);
+  };
+  // Al terminar: si algún archivo falló, "current" nunca llega a "total" y el
+  // último aviso pudo quedar sin enviar; se envía ahora.
+  progress.flush = () => {
+    if (pending) send(pending[0], pending[1], pending[2]);
+  };
+  return progress;
+}
 
 const QUICK_FOLDERS = [
   { key: "pictures", name: "Imágenes" },
@@ -106,6 +145,222 @@ function createWindow() {
   mainWindow.on("closed", () => {
     mainWindow = null;
   });
+  mainWindow.on("close", onWindowClose);
+  // Apagar o cerrar sesión en Windows: se cierra sin preguntar.
+  mainWindow.on("session-end", () => {
+    quitting = true;
+  });
+
+  watchDriveChanges(mainWindow);
+}
+
+// --- Segundo plano -----------------------------------------------------------------
+// Con la X, la app pregunta si cerrar o seguir en segundo plano (con un icono
+// junto al reloj de Windows), para que cerrarla sin querer no corte una copia.
+// La elección se puede recordar y cambiar después en Opciones. Se guarda en su
+// propio archivo: la configuración de la interfaz se reescribe entera al guardar.
+
+let quitting = false;
+let tray = null;
+let rendererBusy = false;
+let cancelAllCopies = false;
+const CLOSE_ACTIONS = new Set(["ask", "background", "quit"]);
+
+function windowPrefsPath() {
+  return path.join(app.getPath("userData"), "kopia-desk-window.json");
+}
+
+function getCloseAction() {
+  const { data } = readJsonWithFallback(windowPrefsPath(), null);
+  return data && CLOSE_ACTIONS.has(data.closeAction) ? data.closeAction : "ask";
+}
+
+function setCloseAction(action) {
+  if (!CLOSE_ACTIONS.has(action)) return;
+  atomicWriteFileSync(windowPrefsPath(), JSON.stringify({ closeAction: action }, null, 2));
+}
+
+function showMainWindow() {
+  if (!mainWindow) return;
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+}
+
+function ensureTray() {
+  if (tray) return tray;
+  const icon = nativeImage.createFromPath(path.join(__dirname, "assets", "Kopia_Desk_icon.png")).resize({ width: 16, height: 16 });
+  tray = new Tray(icon);
+  tray.setToolTip("Kopia Desk v2");
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      { label: "Abrir Kopia Desk", click: showMainWindow },
+      { type: "separator" },
+      { label: "Salir", click: () => quitApp() },
+    ])
+  );
+  tray.on("click", showMainWindow);
+  return tray;
+}
+
+function hideToBackground(firstTime) {
+  if (!mainWindow) return;
+  ensureTray();
+  mainWindow.hide();
+  if (firstTime && Notification.isSupported()) {
+    new Notification({
+      title: "Kopia Desk sigue abierta",
+      body: "Está en segundo plano, junto al reloj de Windows. Haz clic en su icono para volver.",
+      icon: path.join(__dirname, "assets", "Kopia_Desk_icon.png"),
+    }).show();
+  }
+}
+
+// Cerrar de verdad. Si hay una copia en curso se detiene como con el botón
+// Detener (termina y verifica el archivo en curso, guarda lo copiado) y se
+// espera a que la interfaz lo confirme, hasta un minuto.
+async function quitApp() {
+  if (quitting) return;
+  if (rendererBusy && mainWindow) {
+    cancelAllCopies = true;
+    showMainWindow();
+    mainWindow.webContents.send("app:stopping-for-quit");
+    const deadline = Date.now() + 60000;
+    while (rendererBusy && Date.now() < deadline) await new Promise((r) => setTimeout(r, 250));
+  }
+  quitting = true;
+  if (tray) tray.destroy();
+  tray = null;
+  app.quit();
+}
+
+let backgroundHintShown = false;
+
+async function onWindowClose(event) {
+  if (quitting) return;
+  event.preventDefault();
+  let action = getCloseAction();
+  if (action === "ask") {
+    const { response, checkboxChecked } = await dialog.showMessageBox(mainWindow, {
+      type: "question",
+      title: "Cerrar Kopia Desk",
+      message: "¿Cerrar Kopia Desk o dejarla en segundo plano?",
+      detail: rendererBusy
+        ? "Hay una copia en curso. En segundo plano sigue copiando. Si la cierras, la copia se detiene: lo ya copiado queda guardado y verificado, y el resto se copia en el próximo backup."
+        : "En segundo plano sigue abierta junto al reloj de Windows (haz clic en su icono para volver).",
+      buttons: ["Seguir en segundo plano", "Cerrar Kopia Desk", "Cancelar"],
+      defaultId: 0,
+      cancelId: 2,
+      noLink: true,
+      checkboxLabel: "Recordar mi elección (se puede cambiar en Opciones)",
+      checkboxChecked: false,
+    });
+    if (response === 2) return;
+    action = response === 0 ? "background" : "quit";
+    if (checkboxChecked) {
+      setCloseAction(action);
+      if (mainWindow) mainWindow.webContents.send("window:close-action", action);
+    }
+  }
+  if (action === "background") {
+    hideToBackground(!backgroundHintShown);
+    backgroundHintShown = true;
+  } else {
+    quitApp();
+  }
+}
+
+ipcMain.handle("app:busy", (_event, busy) => {
+  rendererBusy = !!busy;
+  if (!rendererBusy) cancelAllCopies = false;
+  if (tray) tray.setToolTip(rendererBusy ? "Kopia Desk v2 — trabajando…" : "Kopia Desk v2");
+});
+
+// Aviso de Windows (sólo si la ventana no está a la vista): p. ej. copia terminada.
+ipcMain.handle("app:notify", (_event, title, body) => {
+  if (!mainWindow || (mainWindow.isVisible() && mainWindow.isFocused())) return false;
+  if (!Notification.isSupported()) return false;
+  const n = new Notification({
+    title: String(title).slice(0, 120),
+    body: String(body).slice(0, 400),
+    icon: path.join(__dirname, "assets", "Kopia_Desk_icon.png"),
+  });
+  n.on("click", showMainWindow);
+  n.show();
+  return true;
+});
+
+ipcMain.handle("app:get-close-action", () => getCloseAction());
+ipcMain.handle("app:set-close-action", (_event, action) => {
+  setCloseAction(action);
+  return getCloseAction();
+});
+
+// Conectar o quitar una USB: Windows avisa a todas las ventanas con
+// WM_DEVICECHANGE. Se escucha ese aviso en vez de consultar los discos cada
+// pocos segundos. No siempre llega DBT_DEVICEARRIVAL (al montar un disco
+// virtual sólo llega DBT_DEVNODES_CHANGED), así que se atienden los tres; y
+// como DBT_DEVNODES_CHANGED también llega por cualquier otro dispositivo, antes
+// de avisar a la interfaz se comprueba que la lista de discos (letra e
+// identidad de volumen) cambió de verdad. Si la letra todavía no está asignada,
+// se vuelve a mirar una vez un poco después.
+const WM_DEVICECHANGE = 0x0219;
+const DBT_DEVNODES_CHANGED = 0x0007;
+const DBT_DEVICEARRIVAL = 0x8000;
+const DBT_DEVICEREMOVECOMPLETE = 0x8004;
+const DRIVE_EVENTS = new Set([DBT_DEVNODES_CHANGED, DBT_DEVICEARRIVAL, DBT_DEVICEREMOVECOMPLETE]);
+const DRIVE_CHANGE_DEBOUNCE_MS = 1200;
+const DRIVE_CHANGE_RECHECK_MS = 2500;
+
+function driveSignature(drives) {
+  return drives
+    .map((d) => d.root + "|" + (d.volumeId || ""))
+    .sort()
+    .join(";");
+}
+
+function watchDriveChanges(win) {
+  if (process.platform !== "win32" || typeof win.hookWindowMessage !== "function") return;
+  let known = null;
+  let timer = null;
+  let checking = false;
+  let again = false;
+
+  const check = async (recheck) => {
+    if (checking) {
+      again = true;
+      return;
+    }
+    checking = true;
+    try {
+      const signature = driveSignature(await listDrives());
+      // Si la lista inicial no se pudo leer (known === null), un aviso de Windows
+      // cuenta como cambio: mejor recargar de más que no mostrar la USB nueva.
+      if (known === null ? recheck : signature !== known) {
+        known = signature;
+        if (!win.isDestroyed()) win.webContents.send("drives:changed");
+      } else {
+        known = signature;
+        if (recheck) timer = setTimeout(() => check(false), DRIVE_CHANGE_RECHECK_MS);
+      }
+    } catch {
+      // no se pudo leer la lista: el próximo aviso lo vuelve a intentar
+    } finally {
+      checking = false;
+      if (again) {
+        again = false;
+        check(true);
+      }
+    }
+  };
+
+  check(false); // estado inicial, para comparar
+  win.hookWindowMessage(WM_DEVICECHANGE, (wParam) => {
+    const event = wParam.length >= 8 ? Number(wParam.readBigUInt64LE(0)) : wParam.readUInt32LE(0);
+    if (!DRIVE_EVENTS.has(event)) return;
+    clearTimeout(timer);
+    timer = setTimeout(() => check(true), DRIVE_CHANGE_DEBOUNCE_MS);
+  });
 }
 
 // Instancia única: dos Kopia Desk abiertas a la vez escribirían sobre los
@@ -114,13 +369,23 @@ function createWindow() {
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
-  app.on("second-instance", () => {
-    if (!mainWindow) return;
-    if (mainWindow.isMinimized()) mainWindow.restore();
-    mainWindow.show();
-    mainWindow.focus();
+  // Abrirla otra vez (también si estaba en segundo plano) trae la ventana.
+  app.on("second-instance", showMainWindow);
+  app.whenReady().then(() => {
+    // El PowerShell de consultas arranca y hace la primera lista de discos
+    // mientras se abre la ventana (antes la interfaz esperaba ~2 s por ella).
+    startupDrives = refreshDrives();
+    removeStalePasswordFiles();
+    createWindow();
   });
-  app.whenReady().then(createWindow);
+  // Salir por otra vía (p. ej. el sistema): no volver a preguntar.
+  app.on("before-quit", () => {
+    quitting = true;
+  });
+  app.on("will-quit", () => {
+    removeStalePasswordFiles();
+    stopPowerShellWorker();
+  });
 }
 app.on("window-all-closed", () => app.quit());
 
@@ -169,6 +434,14 @@ async function refreshDrives() {
     const key = driveKey(d.root);
     if (key) allowed.destRoots.add(key);
   }
+  // Número de serie de cada disco según esta lista (ver assertDestVolumeUnchanged).
+  await Promise.all(
+    lastDrives.map(async (d) => {
+      const key = driveKey(d.root);
+      const serial = key && d.volumeId ? await volumeSerial(key) : null;
+      if (serial !== null) verifiedSerials.set(d.volumeId, serial);
+    })
+  );
   return lastDrives;
 }
 
@@ -188,15 +461,34 @@ async function assertDestRoot(destRoot) {
 // sentido pagar ese costo por cada archivo). `expectedVolumeId` es opcional
 // a propósito: llamadas viejas/sin ese dato simplemente no quedan cubiertas,
 // en vez de romper.
+// Número de serie del volumen (fs.stat de la raíz lo da en "dev"): se lee al
+// instante, sin PowerShell. Con la USB ocupada, pedir la lista de discos a
+// Windows (Get-Volume) tardó hasta 28 s, y se hacía antes de cada carpeta y de
+// las versiones. Ahora la comprobación completa se hace una vez por disco y,
+// mientras el número de serie siga siendo el mismo, no se repite.
+const verifiedSerials = new Map(); // volumeId -> número de serie confirmado
+
+async function volumeSerial(destKey) {
+  try {
+    return (await fs.promises.stat(destKey)).dev;
+  } catch {
+    return null;
+  }
+}
+
 async function assertDestVolumeUnchanged(destKey, expectedVolumeId) {
   if (!expectedVolumeId) return;
+  const serial = await volumeSerial(destKey);
+  if (serial !== null && verifiedSerials.get(expectedVolumeId) === serial) return;
   const drives = await refreshDrives();
   if (driveIdentityChanged(drives, destKey[0], expectedVolumeId)) {
+    verifiedSerials.delete(expectedVolumeId);
     throw new Error(
       `El disco ${destKey} cambió desde que lo elegiste (se desconectó o se conectó otro con la misma letra). ` +
         "No se copió nada más en este lote para no mezclar dos discos distintos en el mismo backup. Volvé a elegirlo."
     );
   }
+  if (serial !== null) verifiedSerials.set(expectedVolumeId, serial);
 }
 
 function allowSource(p) {
@@ -238,8 +530,19 @@ function assertBackupRelative(destKey, relativeDest, subdir) {
   return target;
 }
 
+// La primera lista de discos se pide al arrancar, en paralelo con la ventana
+// (ver whenReady); la interfaz la recoge ya hecha en su primera consulta. Las
+// siguientes, y todas las comprobaciones de seguridad, consultan en el momento.
+let startupDrives = null;
+
 ipcMain.handle("drives:list", async () => {
-  const drives = await refreshDrives();
+  let drives;
+  if (startupDrives) {
+    drives = await startupDrives.catch(() => refreshDrives());
+    startupDrives = null;
+  } else {
+    drives = await refreshDrives();
+  }
   return drives.map((d) => ({ ...d, fsInfo: fileSystemInfo(d.fileSystem) }));
 });
 
@@ -251,6 +554,26 @@ ipcMain.handle("dialog:select-folder", async () => {
   if (result.canceled || !result.filePaths.length) return null;
   allowSource(result.filePaths[0]);
   return result.filePaths[0];
+});
+
+// Carpetas o archivos que NO se copian: sólo pueden estar dentro de una
+// carpeta de origen ya elegida (y no ser la carpeta de origen entera).
+ipcMain.handle("dialog:select-exclude", async (_event, kind, startPath) => {
+  const folder = kind === "folder";
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: [folder ? "openDirectory" : "openFile", "multiSelections"],
+    title: folder ? "Carpetas que no se copian" : "Archivos que no se copian",
+    defaultPath: insideAny(allowed.sources, startPath) ? startPath : undefined,
+  });
+  if (result.canceled || !result.filePaths.length) return { accepted: [], rejected: [] };
+  const accepted = [];
+  const rejected = [];
+  for (const p of result.filePaths) {
+    const isSourceRoot = [...allowed.sources].some((root) => pathKey(root) === pathKey(p));
+    if (insideAny(allowed.sources, p) && !isSourceRoot) accepted.push(p);
+    else rejected.push(p);
+  }
+  return { accepted, rejected };
 });
 
 ipcMain.handle("dialog:select-restore-target", async () => {
@@ -286,13 +609,29 @@ ipcMain.handle("folders:quick-list", () => {
 
 ipcMain.handle("config:default-excludes", () => DEFAULT_EXCLUDES);
 
-ipcMain.handle("fs:scan-directory", async (event, dirPath, excludePatterns) => {
+ipcMain.handle("fs:scan-directory", async (event, dirPath, excludePatterns, excludePaths) => {
   assertSourcePath(dirPath);
   if (!fs.existsSync(dirPath)) throw new Error("La carpeta no existe: " + dirPath);
   const patterns = Array.isArray(excludePatterns) && excludePatterns.length ? excludePatterns : DEFAULT_EXCLUDES;
   const report = createScanReport();
-  const files = await scanDirectoryRecursive(dirPath, "", compileExcludePatterns(patterns), report);
-  return { files, excluded: report.excluded, skipped: report.skipped };
+  const files = await scanDirectoryRecursive(dirPath, "", compileExcludes(dirPath, patterns, excludePaths), report);
+  return { files, excluded: report.excluded, skipped: report.skipped, excludedItems: report.excludedItems };
+});
+
+// Peso de una carpeta de origen (con las mismas exclusiones que el backup),
+// para mostrar al agregarla si cabe en el disco. Sólo devuelve los totales.
+ipcMain.handle("fs:measure-directory", async (_event, dirPath, excludePatterns, excludePaths) => {
+  assertSourcePath(dirPath);
+  if (!fs.existsSync(dirPath)) throw new Error("La carpeta no existe: " + dirPath);
+  const patterns = Array.isArray(excludePatterns) && excludePatterns.length ? excludePatterns : DEFAULT_EXCLUDES;
+  const files = await scanDirectoryRecursive(dirPath, "", compileExcludes(dirPath, patterns, excludePaths), createScanReport());
+  let bytes = 0;
+  let count = 0;
+  for (const f of Object.values(files)) {
+    bytes += f.size || 0;
+    count++;
+  }
+  return { bytes, files: count };
 });
 
 // --- Hashing -------------------------------------------------------------
@@ -436,10 +775,39 @@ ipcMain.handle("journal:check", async (_event, destRoot) => {
 
 // --- Detección de tipo de disco (para concurrencia adaptativa) ------------
 
+// El tipo de disco (USB, SSD, HDD) no cambia mientras el volumen sigue siendo
+// el mismo: se recuerda por su identidad y no se vuelve a preguntar a Windows
+// cada vez que se elige el disco o antes de cada copia.
+const driveTypeCache = new Map();
+
+async function driveTypeOf(key) {
+  const drive = lastDrives.find((d) => driveKey(d.root) === key);
+  const id = drive && drive.volumeId;
+  if (id && driveTypeCache.has(id)) return driveTypeCache.get(id);
+  const info = await detectDriveType(key);
+  if (id && info.busType !== "Unknown") driveTypeCache.set(id, info);
+  return info;
+}
+
+// Cuántos SHA-256 calcular a la vez al escanear una carpeta de origen, según
+// su disco: SSD/NVMe 4 (medido: 2,2 veces más rápido que de a uno), disco
+// mecánico 1 (como antes: leer varios a la vez hace saltar el cabezal), USB o
+// desconocido 2.
+ipcMain.handle("fs:hash-concurrency", async (_event, sourcePath) => {
+  assertSourcePath(sourcePath);
+  const m = /^([A-Za-z]):/.exec(String(sourcePath));
+  if (!m) return 1;
+  if (!lastDrives.length) await refreshDrives();
+  const info = await driveTypeOf(m[1].toUpperCase() + ":\\");
+  if (info.mediaType === "SSD" || info.busType === "NVMe") return 4;
+  if (info.mediaType === "HDD") return 1;
+  return 2;
+});
+
 ipcMain.handle("backup:plan-concurrency", async (_event, driveRoot, avgFileSize) => {
   const key = await assertDestRoot(driveRoot);
-  const driveInfo = await detectDriveType(key);
-  return { concurrency: pickConcurrency(driveInfo, avgFileSize), driveInfo };
+  const driveInfo = await driveTypeOf(key);
+  return { root: driveRoot, concurrency: pickConcurrency(driveInfo, avgFileSize), driveInfo };
 });
 
 // --- Cifrado del disco destino (fase 1: detectar y abrir el panel nativo) ---
@@ -467,6 +835,39 @@ const BITLOCKER_HELPER = bitlockerHelperPath(path.join(__dirname, "lib"));
 
 function helperStatusPath(letter, action) {
   return path.join(app.getPath("userData"), "bitlocker", `${letter}-${action}.json`);
+}
+
+// Contraseña elegida en la app, protegida con DPAPI, para el ayudante. Va en la
+// misma carpeta que el archivo de estado (el ayudante sólo acepta esa carpeta).
+// El ayudante la borra al leerla; por si no llega a leerla (UAC rechazado,
+// ayudante que no arranca) también se borra aquí.
+// Un nombre por intento: el temporizador de limpieza de un intento anterior
+// nunca puede borrar el archivo de un reintento sobre el mismo disco.
+function helperPasswordPath(letter) {
+  const unique = require("crypto").randomBytes(6).toString("hex");
+  return path.join(app.getPath("userData"), "bitlocker", `${letter}-Encrypt-${unique}.pw`);
+}
+
+const PASSWORD_FILE_MAX_AGE_MS = 2 * 60 * 1000;
+
+function removePasswordFile(file) {
+  try {
+    fs.rmSync(file, { force: true });
+  } catch {
+    // se reintenta en la siguiente limpieza
+  }
+}
+
+// Al arrancar y al salir: ningún .pw sobrevive a la sesión que lo creó.
+function removeStalePasswordFiles() {
+  const dir = path.join(app.getPath("userData"), "bitlocker");
+  let names = [];
+  try {
+    names = fs.readdirSync(dir);
+  } catch {
+    return;
+  }
+  for (const name of names) if (name.endsWith(".pw")) removePasswordFile(path.join(dir, name));
 }
 
 // PID del ayudante por "<letra>-<acción>", para detectar si se cerró sin
@@ -497,8 +898,10 @@ async function assertBitLockerTarget(driveRoot, volumeId) {
 }
 
 // Lanza el ayudante elevado. La promesa se resuelve cuando el usuario responde
-// el aviso de UAC; el resto (contraseña, clave de recuperación, progreso) se
-// sigue con encryption:job-status.
+// el aviso de UAC; el resto (clave de recuperación, progreso) se sigue con
+// encryption:job-status. La contraseña (options.password) se escribe en el
+// panel de la app: se valida, se protege con DPAPI y se entrega al ayudante en
+// un archivo; nunca va en la línea de comandos ni se guarda en texto plano.
 ipcMain.handle("encryption:encrypt", async (_event, driveRoot, options = {}) => {
   const key = await assertBitLockerTarget(driveRoot, options.volumeId);
   const status = await getEncryptionStatus(key);
@@ -506,7 +909,31 @@ ipcMain.handle("encryption:encrypt", async (_event, driveRoot, options = {}) => 
     throw new Error("Esta edición de Windows no puede cifrar discos con BitLocker (sí puede abrir discos ya cifrados).");
   }
   if (status.state !== "off") throw new Error("Este disco ya tiene BitLocker configurado.");
-  return launchHelper("Encrypt", key, { fullDisk: !!options.fullDisk, volumeId: options.volumeId });
+
+  let passwordFile = null;
+  if (options.password !== undefined) {
+    const check = validateNewPassword(options.password);
+    if (!check.ok) throw new Error(check.error);
+    passwordFile = helperPasswordPath(key[0]);
+    const blob = await protectPasswordForHelper(options.password);
+    fs.mkdirSync(path.dirname(passwordFile), { recursive: true });
+    fs.writeFileSync(passwordFile, blob, "utf-8");
+  }
+  try {
+    const result = await launchHelper("Encrypt", key, {
+      fullDisk: !!options.fullDisk,
+      volumeId: options.volumeId,
+      passwordFile,
+    });
+    if (passwordFile) {
+      if (!result.started) removePasswordFile(passwordFile);
+      else setTimeout(() => removePasswordFile(passwordFile), PASSWORD_FILE_MAX_AGE_MS).unref();
+    }
+    return result;
+  } catch (err) {
+    if (passwordFile) removePasswordFile(passwordFile);
+    throw err;
+  }
 });
 
 ipcMain.handle("encryption:lock", async (_event, driveRoot, volumeId) => {
@@ -534,6 +961,25 @@ ipcMain.handle("encryption:unlock", async (_event, driveRoot) => {
   return getEncryptionStatus(key);
 });
 
+// --- Expulsar el disco destino ------------------------------------------------
+// Como "Quitar hardware de forma segura", sin administrador. Antes se comprueba
+// con la lista de discos recién leída que la letra sigue siendo el volumen
+// elegido y que no está en el disco del sistema.
+const EJECT_SCRIPT = ejectScriptPath(path.join(__dirname, "lib"));
+
+ipcMain.handle("drive:eject", async (_event, driveRoot, volumeId) => {
+  const key = await assertDestRoot(driveRoot);
+  const check = checkBitLockerTarget(await refreshDrives(), key[0], volumeId);
+  if (!check.ok) {
+    throw new Error(
+      check.code === "system-disk"
+        ? `${key[0]}: está en el disco del sistema: Kopia Desk no lo expulsa.`
+        : check.error
+    );
+  }
+  return ejectDrive(key, EJECT_SCRIPT);
+});
+
 // --- Copia de backup --------------------------------------------------------
 
 function describeCopyError(err, relativeDest) {
@@ -553,6 +999,25 @@ function describeCopyError(err, relativeDest) {
       return err.message;
   }
 }
+
+// Botón Detener: la interfaz manda el identificador de su copia (opId). Cada
+// copia deja de empezar archivos nuevos cuando ve el suyo aquí; el que está en
+// curso termina y se verifica (nunca se deja un archivo a medias en el backup).
+// El identificador (y no un simple "sí/no") evita que una orden de parar que
+// llega entre dos carpetas se pierda o detenga una copia posterior.
+const cancelledOps = new Set();
+
+function isCancelled(opId) {
+  // Al cerrar la app con una copia en curso se detienen todas (ver quitApp).
+  return cancelAllCopies || (typeof opId === "string" && cancelledOps.has(opId));
+}
+
+ipcMain.handle("copy:cancel", (_event, opId) => {
+  if (typeof opId !== "string" || !opId || opId.length > 100) return false;
+  if (cancelledOps.size > 200) cancelledOps.clear();
+  cancelledOps.add(opId);
+  return true;
+});
 
 ipcMain.handle("backup:copy-files", async (event, tasks, options = {}) => {
   if (!Array.isArray(tasks)) throw new Error("Lista de tareas no válida.");
@@ -588,9 +1053,14 @@ ipcMain.handle("backup:copy-files", async (event, tasks, options = {}) => {
     index: loadContentIndex(destKey),
     pendingWrites: new Map(),
     maxFileSize: fsInfo.maxFileSize,
+    madeDirs: new Set(),
   };
   const concurrency = options.concurrency > 0 ? options.concurrency : BACKUP_CONCURRENCY;
   const journalPath = startJournal(journalDir(destKey), validTasks);
+  const journal = createJournalWriter(journalPath);
+  const progress = progressSender(event, "backup", total);
+  let indexSavedAt = Date.now();
+  let bytesDone = 0;
 
   async function copyOne(task) {
     try {
@@ -598,28 +1068,26 @@ ipcMain.handle("backup:copy-files", async (event, tasks, options = {}) => {
       if (result.dedup) deduped++;
       copied++;
       done.push({ relativeDest: task.relativeDest, hash: result.hash });
-      if (journalPath) appendJournalDone(journalPath, task.relativeDest);
-      if (copied % INDEX_SAVE_INTERVAL === 0) saveContentIndex(destKey, ctx.index);
-      event.sender.send("progress", {
-        phase: "backup",
-        current: copied,
-        total,
-        file: task.relativeDest,
-        percent: Math.round((copied / total) * 100),
-      });
+      journal.add(task.relativeDest);
+      if (Date.now() - indexSavedAt >= INDEX_SAVE_INTERVAL_MS) {
+        saveContentIndex(destKey, ctx.index);
+        indexSavedAt = Date.now();
+      }
+      bytesDone += Number.isFinite(task.size) ? task.size : 0;
+      progress(copied, task.relativeDest, bytesDone);
     } catch (err) {
       errors.push({ file: task.relativeDest, error: describeCopyError(err, task.relativeDest), code: err.code });
     }
   }
 
-  const inFlight = new Set();
-  for (const task of validTasks) {
-    const p = copyOne(task);
-    inFlight.add(p);
-    p.finally(() => inFlight.delete(p));
-    if (inFlight.size >= concurrency) await Promise.race(inFlight);
-  }
-  await Promise.all(inFlight);
+  // Muchos archivos pequeños de a uno (USB): se mide si 2 a la vez va más
+  // rápido en este disco y se sigue con lo mejor (ver runTasks).
+  const knownSizes = validTasks.filter((t) => Number.isFinite(t.size));
+  const avgSize = knownSizes.length ? knownSizes.reduce((s, t) => s + t.size, 0) / knownSizes.length : 0;
+  const adaptive = concurrency === 1 && avgSize > 0 && avgSize < 2 * 1024 * 1024;
+  const run = await runTasks(validTasks, copyOne, { concurrency, adaptive, shouldStop: () => isCancelled(options.opId) });
+  progress.flush();
+  journal.flush();
 
   saveContentIndex(destKey, ctx.index);
 
@@ -630,7 +1098,7 @@ ipcMain.handle("backup:copy-files", async (event, tasks, options = {}) => {
     finishJournal(journalPath);
   }
 
-  return { copied, errors, deduped, done };
+  return { copied, errors, deduped, done, concurrency: run.concurrency, probe: run.probe, stopped: run.stopped };
 });
 
 // --- Copia de versiones anteriores (comprimidas con gzip) ------------------
@@ -641,7 +1109,7 @@ ipcMain.handle("backup:copy-files", async (event, tasks, options = {}) => {
 // a mitad de escribir una versión dejaba un ".kopia-tmp" que journal:peek/
 // journal:check nunca veían (no está en la carpeta de backup normal) y
 // quedaba huérfano para siempre.
-ipcMain.handle("backup:copy-versions", async (_event, tasks, options = {}) => {
+ipcMain.handle("backup:copy-versions", async (event, tasks, options = {}) => {
   if (!Array.isArray(tasks)) throw new Error("Lista de tareas no válida.");
   const errors = [];
   if (!tasks.length) return { copied: 0, skipped: 0, errors };
@@ -674,24 +1142,51 @@ ipcMain.handle("backup:copy-versions", async (_event, tasks, options = {}) => {
     journalDir(destKey),
     writableTasks.map((t) => ({ relativeDest: t.journalRelative }))
   );
+  const journal = createJournalWriter(journalPath);
 
   let copied = 0;
+  let stopped = false;
+  let bytesDone = 0;
+  const progress = progressSender(event, "versions", writableTasks.length);
   for (const task of writableTasks) {
+    if (isCancelled(options.opId)) {
+      stopped = true;
+      break;
+    }
     try {
       await writeVersionAtomic(task.srcPath, task.target);
       copied++;
-      if (journalPath) appendJournalDone(journalPath, task.journalRelative);
+      journal.add(task.journalRelative);
+      bytesDone += Number(task.size) || 0;
+      progress(copied, task.relativeDest, bytesDone);
     } catch (err) {
       errors.push({ file: String(task.relativeDest), error: err.message });
     }
   }
 
+  progress.flush();
+  journal.flush();
   if (journalPath) {
     checkJournals(journalDir(destKey), destKey);
     finishJournal(journalPath);
   }
 
-  return { copied, skipped, errors };
+  return { copied, skipped, errors, stopped };
+});
+
+// Último backup en ese disco (fecha, cuántos archivos), o null si no hay.
+ipcMain.handle("backup:last-run", async (_event, destRoot) => {
+  const key = await assertDestRoot(destRoot);
+  return summarizeLastBackup(path.join(metadataDir(key), "logs"));
+});
+
+// Abre en el Explorador la carpeta del backup de ese disco (si existe).
+ipcMain.handle("backup:open-folder", async (_event, destRoot) => {
+  const key = await assertDestRoot(destRoot);
+  const folder = backupRootOf(key);
+  if (!fs.existsSync(folder)) return { ok: false, error: "Todavía no hay un backup en este disco." };
+  const error = await shell.openPath(folder);
+  return error ? { ok: false, error } : { ok: true };
 });
 
 ipcMain.handle("log:save", async (_event, destRoot, sourceName, report) => {
@@ -779,39 +1274,35 @@ ipcMain.handle("restore:copy-files", async (event, files, targetDir, options = {
   const total = files.length;
   let copied = 0;
   const errors = [];
+  const madeDirs = new Set();
+  const progress = progressSender(event, "restore", total);
+  let bytesDone = 0;
 
   async function restoreOne(file) {
     try {
       assertInsideBackup(file.backupFullPath);
       const dest = safePath(targetDir, file.path);
-      await fs.promises.mkdir(path.dirname(dest), { recursive: true });
+      await ensureDir(path.dirname(dest), madeDirs);
       // Misma copia verificada que el backup, más el chequeo contra el hash
       // del manifiesto (ver comentario de restoreFileVerified en core.js).
       await restoreFileVerified(file.backupFullPath, dest, file.hash);
       copied++;
-      event.sender.send("progress", {
-        phase: "restore",
-        current: copied,
-        total,
-        file: file.path,
-        percent: Math.round((copied / total) * 100),
-      });
+      bytesDone += Number(file.size) || 0;
+      progress(copied, file.path, bytesDone);
     } catch (err) {
       errors.push({ file: String(file && file.path), error: describeCopyError(err, String(file && file.path)) });
     }
   }
 
-  const concurrency = options.concurrency > 0 ? options.concurrency : BACKUP_CONCURRENCY;
-  const inFlight = new Set();
-  for (const file of files) {
-    const p = restoreOne(file);
-    inFlight.add(p);
-    p.finally(() => inFlight.delete(p));
-    if (inFlight.size >= concurrency) await Promise.race(inFlight);
-  }
-  await Promise.all(inFlight);
+  // Muchos archivos pequeños: 4 a la vez (el destino es el disco del equipo);
+  // grandes: lo que diga el tipo de disco (ver pickRestoreConcurrency).
+  const avgSize = total ? files.reduce((s, f) => s + ((f && f.size) || 0), 0) / total : 0;
+  const requested = options.concurrency > 0 ? options.concurrency : BACKUP_CONCURRENCY;
+  const concurrency = Math.max(requested, pickRestoreConcurrency(avgSize));
+  const run = await runTasks(files, restoreOne, { concurrency, shouldStop: () => isCancelled(options.opId) });
+  progress.flush();
 
-  return { copied, errors };
+  return { copied, errors, concurrency, stopped: run.stopped };
 });
 
 ipcMain.handle("restore:list-sources", async (_event, backupDrive) => {

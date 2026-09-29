@@ -124,7 +124,6 @@
         </div>
 
         <main class="canvas">
-          <div id="spaceWarning" class="warning" hidden></div>
           <div id="fsWarning" class="warning" hidden></div>
 
           <!-- Aviso de backup interrumpido: se pide confirmación antes de limpiar -->
@@ -163,31 +162,72 @@
           <div id="progressContainer" class="progress-card" hidden>
             <div class="progress-header">
               <span id="progressPhase">Escaneando...</span>
-              <span id="progressPercent" class="mono">0%</span>
+              <span class="progress-header-right">
+                <span id="progressPercent" class="mono">0%</span>
+                <button
+                  id="stopCopyBtn"
+                  class="ghost stop-btn"
+                  type="button"
+                  title="Deja de copiar: termina y verifica el archivo en curso; lo que falte se copia en el próximo backup"
+                  hidden
+                >
+                  <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="6" y="6" width="12" height="12" rx="2"></rect></svg>
+                  <span>Detener</span>
+                </button>
+              </span>
             </div>
             <div class="progress-bar-track">
               <div id="progressBar" class="progress-bar-fill"></div>
             </div>
             <div id="progressDetail" class="progress-detail mono"></div>
+            <div id="progressTime" class="progress-time" hidden></div>
           </div>
 
           <!-- Vista backup -->
           <div id="backupView">
+            <!-- Cabecera corta: así el Resumen con "Escanear" y "Copiar" se ve sin
+                 desplazarse en pantallas de 720 px de alto. -->
             <div class="view-header">
-              <div class="eyebrow-row">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M12 3v6l4 2"></path><circle cx="12" cy="12" r="9"></circle>
-                </svg>
-                <span>Backup incremental</span>
-              </div>
               <h1 class="page-title">Copias de seguridad</h1>
-              <p class="page-sub">
-                Elegí las carpetas de origen y a dónde copiarlas. Vas a ver exactamente qué es nuevo, qué cambió y qué se
-                eliminó antes de copiar nada.
-              </p>
             </div>
 
+            <!-- Bienvenida: sólo mientras no hay carpetas. Los pasos se marcan
+                 solos (✔) al cumplirse; los dos primeros llevan a la acción. -->
+            <section id="welcomeCard" class="card welcome-card" hidden>
+              <div class="welcome-intro">
+                <span class="welcome-eyebrow">Bienvenido</span>
+                <h2 class="welcome-title">Tus archivos, resguardados.</h2>
+                <p>
+                  Elige qué carpetas proteger y a qué disco copiarlas. Verás exactamente qué se va a copiar, y por qué,
+                  antes de tocar un solo archivo.
+                </p>
+              </div>
+              <ol class="welcome-steps">
+                <li>
+                  <button id="welcomeStep1" class="welcome-step" type="button">
+                    <span class="welcome-num" aria-hidden="true">1</span>
+                    <span class="welcome-text"><strong>Elige carpetas</strong><small>Fotos, Documentos o cualquier otra</small></span>
+                  </button>
+                </li>
+                <li>
+                  <button id="welcomeStep2" class="welcome-step" type="button">
+                    <span class="welcome-num" aria-hidden="true">2</span>
+                    <span class="welcome-text"><strong>Elige el disco</strong><small>Una USB o un disco externo conectado</small></span>
+                  </button>
+                </li>
+                <li>
+                  <div id="welcomeStep3" class="welcome-step">
+                    <span class="welcome-num" aria-hidden="true">3</span>
+                    <span class="welcome-text"><strong>Revisa y confirma</strong><small>Verás todo antes de copiar nada</small></span>
+                  </div>
+                </li>
+              </ol>
+            </section>
+
             <div class="setup-grid">
+              <!-- Columna izquierda: Origen y, debajo, el Resumen con los botones
+                   (así no hay que bajar hasta el final para copiar). -->
+              <div class="setup-col">
               <section class="card">
                 <div class="card-head">
                   <div class="card-head-left">
@@ -214,6 +254,89 @@
                 <div id="sourcesList" class="list empty">Sin carpetas seleccionadas</div>
               </section>
 
+              <!-- Resumen: cuánto pesa lo elegido, cuánto se va a copiar y si cabe. -->
+              <section class="card summary-card" aria-label="Resumen: qué se va a copiar y si cabe">
+                <dl class="summary-list">
+                  <div>
+                    <dt>Seleccionado</dt>
+                    <dd id="sumSelected">—</dd>
+                    <dd id="sumSelectedDetail" class="summary-sub"></dd>
+                  </div>
+                  <div>
+                    <dt>A copiar ahora</dt>
+                    <dd id="sumPlanned">—</dd>
+                    <dd id="sumPlannedDetail" class="summary-sub"></dd>
+                  </div>
+                  <div>
+                    <dt id="sumFreeLabel">Libre en el destino</dt>
+                    <dd id="sumFree">—</dd>
+                    <dd id="sumFreeDetail" class="summary-sub"></dd>
+                  </div>
+                </dl>
+                <div class="usage-track summary-track"><div id="sumBar" class="usage-fill"></div></div>
+                <p id="sumFit" class="summary-fit"></p>
+                <div class="action-bar-actions summary-actions">
+                  <button id="scanBtn" class="primary" type="button">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.2" y2="16.2"></line>
+                    </svg>
+                    <span>Escanear cambios</span>
+                  </button>
+                  <button id="backupBtn" type="button" disabled>
+                    <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M13 2 4 14h6l-1 8 9-12h-6z"></path></svg>
+                    <span>Copiar aceptados</span>
+                  </button>
+                </div>
+                <button id="sumDetailsBtn" class="link-btn summary-details" type="button" hidden>
+                  <span>Ver el detalle de los cambios</span>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M6 13l6 6 6-6"></path></svg>
+                </button>
+              </section>
+
+              <!-- Excluir: carpetas o archivos concretos que no se copian (elegidos con
+                   el explorador, dentro de las carpetas de origen) y, plegado, por nombre. -->
+              <section class="card exclude-card" aria-label="Excluir: lo que no se copia">
+                <div class="card-head">
+                  <div class="card-head-left">
+                    <div class="card-icon">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="8.5"></circle><line x1="6" y1="6" x2="18" y2="18"></line>
+                      </svg>
+                    </div>
+                    <div>
+                      <h2>Excluir</h2>
+                      <p>Carpetas o archivos que no se copian</p>
+                    </div>
+                  </div>
+                  <div class="exclude-actions">
+                    <button id="excludeFolderBtn" type="button" title="Elegir carpetas, dentro de tus carpetas de origen, que no se copian">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                      <span>Carpeta</span>
+                    </button>
+                    <button id="excludeFileBtn" type="button" title="Elegir archivos, dentro de tus carpetas de origen, que no se copian">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                      <span>Archivo</span>
+                    </button>
+                  </div>
+                </div>
+                <div id="excludeList" class="list empty">Nada excluido: se copia todo lo de tus carpetas.</div>
+                <details id="excludePatternsBox" class="exclude-patterns">
+                  <summary>Por nombre o tipo <span class="exclude-patterns-count" id="excludePatternsCount"></span></summary>
+                  <p class="exclude-sub">Se ignoran siempre (desmarca para copiarlos):</p>
+                  <div id="defaultExcludes" class="default-excludes"></div>
+                  <p class="exclude-sub">Además, todo lo que se llame así:</p>
+                  <textarea
+                    id="excludeInput"
+                    class="exclude-input"
+                    rows="2"
+                    placeholder="Un patrón por línea o separados por coma. Ej: *.iso, Backups_temp"
+                    title="Además de lo que ya se ignora por defecto (Thumbs.db, desktop.ini, .git, node_modules, *.tmp, etc.), estos patrones también se saltan al escanear. Admite comodines * y ?."
+                  ></textarea>
+                  <p class="hint">En cualquier carpeta. Admite comodines * y ?.</p>
+                </details>
+              </section>
+              </div>
+
               <section class="card">
                 <div class="card-head">
                   <div class="card-head-left">
@@ -230,9 +353,23 @@
                 </div>
 
                 <span class="section-label">Disco</span>
-                <select id="destinationSelect" class="destination-select" aria-label="Disco destino">
-                  <option value="">Buscando discos...</option>
-                </select>
+                <div class="destination-row">
+                  <select id="destinationSelect" class="destination-select" aria-label="Disco destino">
+                    <option value="">Buscando discos...</option>
+                  </select>
+                  <button
+                    id="refreshDrivesBtn"
+                    class="icon-btn"
+                    type="button"
+                    title="Actualizar discos (también se actualiza solo al conectar o quitar una USB)"
+                    aria-label="Actualizar discos"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M3 12a9 9 0 0 1 15.3-6.4L21 8"></path><path d="M21 3v5h-5"></path>
+                      <path d="M21 12a9 9 0 0 1-15.3 6.4L3 16"></path><path d="M3 21v-5h5"></path>
+                    </svg>
+                  </button>
+                </div>
 
                 <div class="drive-card" id="driveCard">
                   <div class="drive-head">
@@ -249,45 +386,86 @@
                   </div>
                   <div class="usage-track"><div class="usage-fill" id="usageFill"></div></div>
                   <div class="drive-foot mono" id="repoPathHint"></div>
-                  <div id="driveInfo" class="hint" hidden></div>
+                  <div id="lastBackupRow" class="last-backup" hidden>
+                    <span id="lastBackupText"></span>
+                    <button id="openBackupBtn" class="link-btn" type="button" title="Abrir la carpeta del backup en el Explorador">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"></path></svg>
+                      <span>Abrir carpeta</span>
+                    </button>
+                  </div>
                 </div>
 
-                <!-- Estado de cifrado del destino (BitLocker): cifrar, desbloquear y
-                     bloquear desde aquí. La contraseña y la clave de recuperación
-                     nunca pasan por la app: las piden ventanas de Windows o del
-                     ayudante elevado (lib/bitlocker-helper.ps1). -->
+                <!-- Estado de cifrado del destino (BitLocker): cifrar, desbloquear,
+                     bloquear y expulsar desde aquí. La contraseña nueva se escribe
+                     aquí y llega al ayudante elevado protegida con DPAPI; la clave
+                     de recuperación la muestra el ayudante (lib/bitlocker-helper.ps1)
+                     y el desbloqueo usa el cuadro de Windows. -->
                 <div id="encryptionPanel" class="encryption-panel" hidden>
-                  <p id="encryptionStatus"></p>
+                  <div class="encryption-head">
+                    <p id="encryptionStatus"></p>
+                    <button
+                      id="encryptionRecheckBtn"
+                      class="icon-btn icon-btn-sm"
+                      type="button"
+                      title="Comprobar de nuevo el cifrado del disco"
+                      aria-label="Comprobar de nuevo"
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M3 12a9 9 0 0 1 15.3-6.4L21 8"></path><path d="M21 3v5h-5"></path>
+                        <path d="M21 12a9 9 0 0 1-15.3 6.4L3 16"></path><path d="M3 21v-5h5"></path>
+                      </svg>
+                    </button>
+                  </div>
                   <div id="encryptionProgress" class="encryption-progress" hidden>
                     <div id="encryptionProgressFill" class="encryption-progress-fill"></div>
                   </div>
+                  <div id="encryptPasswordBox" class="encrypt-password" hidden>
+                    <label for="encPassword1">Contraseña del disco <span class="encrypt-password-min">(mínimo 8 caracteres)</span></label>
+                    <div class="password-field">
+                      <input id="encPassword1" type="password" autocomplete="new-password" maxlength="256" spellcheck="false" />
+                      <button class="pw-eye" type="button" data-target="encPassword1" title="Mostrar contraseña" aria-label="Mostrar contraseña" aria-pressed="false">
+                        <svg class="pw-eye-show" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                        <svg class="pw-eye-hide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"></path><path d="M10.6 5.1A10.8 10.8 0 0 1 12 5c6.4 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.1"></path><path d="M6.6 6.6C3.8 8.4 2 12 2 12s3.6 7 10 7a10 10 0 0 0 5.4-1.6"></path><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"></path></svg>
+                      </button>
+                    </div>
+                    <label for="encPassword2">Repite la contraseña</label>
+                    <div class="password-field">
+                      <input id="encPassword2" type="password" autocomplete="new-password" maxlength="256" spellcheck="false" />
+                      <button class="pw-eye" type="button" data-target="encPassword2" title="Mostrar contraseña" aria-label="Mostrar contraseña" aria-pressed="false">
+                        <svg class="pw-eye-show" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                        <svg class="pw-eye-hide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"></path><path d="M10.6 5.1A10.8 10.8 0 0 1 12 5c6.4 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.1"></path><path d="M6.6 6.6C3.8 8.4 2 12 2 12s3.6 7 10 7a10 10 0 0 0 5.4-1.6"></path><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"></path></svg>
+                      </button>
+                    </div>
+                    <p id="encPasswordStrength" class="encrypt-strength" aria-live="polite"></p>
+                    <p class="encrypt-password-hint">
+                      Windows la pedirá cada vez que conectes el disco, en este o en otro equipo. Si la olvidas, solo
+                      la clave de recuperación lo abre.
+                    </p>
+                  </div>
                   <div class="notice-actions">
                     <button id="encryptBtn" class="primary" type="button" hidden>Cifrar este disco</button>
+                    <button
+                      id="skipEncryptBtn"
+                      class="ghost"
+                      type="button"
+                      title="Pliega este aviso para este disco. Puedes cifrarlo más adelante con «Cifrar…»."
+                      hidden
+                    >
+                      Omitir por ahora
+                    </button>
+                    <button id="showEncryptBtn" class="ghost" type="button" hidden>Cifrar…</button>
                     <button id="unlockBtn" class="primary" type="button" hidden>Desbloquear</button>
                     <button id="lockBtn" class="ghost" type="button" hidden>Bloquear ahora</button>
+                    <button id="ejectBtn" class="ghost" type="button" hidden>Expulsar</button>
                     <button id="encryptionOpenBtn" class="ghost" type="button" hidden>Abrir panel de BitLocker</button>
-                    <button id="encryptionRecheckBtn" class="ghost" type="button">Comprobar de nuevo</button>
                   </div>
                   <label id="lockAfterLabel" class="warning-ack" hidden>
                     <input id="lockAfterToggle" type="checkbox" />
                     Bloquear el disco al terminar el backup
                   </label>
-                  <label id="encryptionAckLabel" class="warning-ack" hidden>
-                    <input id="encryptionAck" type="checkbox" />
-                    Entiendo el riesgo: continuar sin cifrar este disco
-                  </label>
                 </div>
 
-                <div class="dest-actions">
-                  <button id="refreshDrivesBtn" class="link-btn" type="button">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="M3 12a9 9 0 0 1 15.3-6.4L21 8"></path><path d="M21 3v5h-5"></path>
-                      <path d="M21 12a9 9 0 0 1-15.3 6.4L3 16"></path><path d="M3 21v-5h5"></path>
-                    </svg>
-                    <span>Actualizar discos</span>
-                  </button>
-                </div>
-                <p class="hint">
+                <p class="hint dest-hint">
                   En «Backup» es donde se guarda la copia. En «Comparar» y «Restaurar» es el disco que ya tiene tu
                   backup.
                 </p>
@@ -342,46 +520,36 @@
                   </div>
                 </label>
                 <label
-                  class="option-row"
-                  title="Muestra información técnica, como el tipo de disco detectado (SSD/HDD/USB) y cuántos archivos se copian en paralelo."
+                  class="option-row option-select"
+                  title="En segundo plano la app sigue abierta (y copiando) junto al reloj de Windows."
                 >
-                  <input id="advancedToggle" type="checkbox" class="switch" />
                   <div>
-                    <div class="option-title">Mostrar detalles técnicos</div>
-                    <div class="option-desc">Tipo de disco detectado y concurrencia de copia usada.</div>
+                    <div class="option-title">Al cerrar la ventana (X)</div>
+                    <div class="option-desc">Evita cortar una copia por cerrarla sin querer.</div>
                   </div>
+                  <select id="closeActionSelect" aria-label="Al cerrar la ventana">
+                    <option value="ask">Preguntar</option>
+                    <option value="background">Seguir en segundo plano</option>
+                    <option value="quit">Cerrar la app</option>
+                  </select>
                 </label>
               </div>
 
-              <span class="section-label mt-14">Excluir además (opcional)</span>
-              <textarea
-                id="excludeInput"
-                class="exclude-input"
-                rows="2"
-                placeholder="Un patrón por línea o separados por coma. Ej: *.iso, Backups_temp"
-                title="Además de lo que ya se ignora por defecto (Thumbs.db, desktop.ini, .git, node_modules, *.tmp, etc.), estos patrones también se saltan al escanear. Admite comodines * y ?."
-              ></textarea>
-              <p class="hint">Se suman a las exclusiones por defecto; no las reemplazan.</p>
             </section>
-
-            <div class="action-bar">
-              <div class="action-bar-actions">
-                <button id="scanBtn" class="primary" type="button">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.2" y2="16.2"></line>
-                  </svg>
-                  <span>Escanear cambios</span>
-                </button>
-                <button id="backupBtn" type="button" disabled>
-                  <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M13 2 4 14h6l-1 8 9-12h-6z"></path></svg>
-                  <span>Copiar aceptados</span>
-                </button>
-              </div>
-            </div>
 
             <div id="changesView" class="changes-view empty-state">
               <h3>Listo para escanear</h3>
               <p>Agrega una o más carpetas, elige destino y ejecuta el escaneo.</p>
+            </div>
+
+            <!-- Barra fija: aparece sólo cuando los botones del Resumen no se ven
+                 (muchas carpetas o pantalla baja), con el veredicto y los botones. -->
+            <div id="actionDock" class="action-dock" hidden>
+              <p id="dockText" class="action-dock-text"></p>
+              <div class="action-bar-actions">
+                <button id="dockScanBtn" type="button">Escanear cambios</button>
+                <button id="dockBackupBtn" class="primary" type="button" disabled>Copiar aceptados</button>
+              </div>
             </div>
           </div>
 
@@ -439,13 +607,16 @@
     <dialog id="encryptDialog" class="kd-dialog" aria-labelledby="encryptDialogTitle">
       <h2 id="encryptDialogTitle">Cifrar el disco <span id="encryptDialogDrive"></span></h2>
       <p>
-        Kopia Desk usa BitLocker, el cifrado de Windows. Cuando termine, el disco pedirá contraseña cada vez que lo
-        conectes, en este o en otro equipo con Windows. Tus archivos siguen siendo archivos normales.
+        Kopia Desk usa BitLocker, el cifrado de Windows, con la contraseña que escribiste. Cuando termine, el disco
+        pedirá esa contraseña cada vez que lo conectes, en este o en otro equipo con Windows. Tus archivos siguen
+        siendo archivos normales.
       </p>
       <ol class="kd-steps">
         <li>Windows te pedirá permiso de administrador.</li>
-        <li>En una ventana de Kopia Desk eliges la contraseña (mínimo 12 caracteres).</li>
-        <li>Guardas la clave de recuperación <strong>fuera de este disco</strong>. Sin guardarla no se continúa.</li>
+        <li>
+          En una ventana de Kopia Desk guardas la clave de recuperación <strong>fuera de este disco</strong>. Sin
+          guardarla no se continúa.
+        </li>
         <li>El cifrado sigue en segundo plano: puedes usar el disco mientras tanto, aunque irá más lento.</li>
       </ol>
       <fieldset class="kd-scope">

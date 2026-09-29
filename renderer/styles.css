@@ -555,6 +555,321 @@ svg {
   align-items: start;
 }
 
+/* --- Bienvenida (sin carpetas todavía) ---------------------------------- */
+
+.welcome-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 18px 28px;
+  align-items: center;
+  border-color: var(--primary-border);
+  background: linear-gradient(135deg, var(--primary-tint), var(--surface) 60%);
+}
+
+.welcome-eyebrow {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--primary);
+}
+
+.welcome-title {
+  margin: 4px 0 6px;
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+.welcome-intro p {
+  margin: 0;
+  max-width: 52ch;
+  font-size: 0.86rem;
+  color: var(--ink-variant);
+}
+
+.welcome-steps {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.welcome-step {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 12px;
+  width: 100%;
+  height: auto;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  text-align: left;
+  font-weight: 400;
+}
+
+button.welcome-step {
+  cursor: pointer;
+}
+
+button.welcome-step:hover:not(:disabled) {
+  border-color: var(--primary);
+}
+
+.welcome-num {
+  display: grid;
+  place-content: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--surface-low);
+  color: var(--ink-variant);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.welcome-text {
+  display: grid;
+  gap: 1px;
+  min-width: 0;
+}
+
+.welcome-text strong {
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.welcome-text small {
+  font-size: 0.75rem;
+  color: var(--ink-variant);
+}
+
+/* El siguiente paso a hacer, resaltado */
+.welcome-step[data-state="next"] {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-tint);
+}
+
+.welcome-step[data-state="next"] .welcome-num {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+/* Paso cumplido: ✔ en verde */
+.welcome-step[data-state="done"] .welcome-num {
+  border-color: var(--good);
+  background: var(--good-tint);
+  color: var(--good);
+}
+
+.welcome-step[data-state="done"] strong {
+  color: var(--ink-variant);
+}
+
+@media (max-width: 1000px) {
+  .welcome-card {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Columna izquierda: Origen y Resumen apilados */
+.setup-col {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+  min-width: 0;
+}
+
+/* --- Resumen: peso, espacio libre y botones ---------------------------- */
+
+/* Tres cifras en fila: Seleccionado · A copiar ahora · Libre */
+.summary-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.summary-list > div {
+  min-width: 0;
+}
+
+.summary-list dt {
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-variant);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.summary-list dd {
+  margin: 2px 0 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.summary-list dd.muted {
+  font-size: 0.86rem;
+  font-weight: 500;
+  color: var(--ink-variant);
+}
+
+.summary-list dd.summary-sub {
+  margin-top: 1px;
+  font-size: 0.72rem;
+  font-weight: 400;
+  color: var(--ink-variant);
+}
+
+.summary-track {
+  margin-top: 12px;
+}
+
+.summary-track .usage-fill[data-level="warn"] {
+  background: var(--warn);
+}
+
+.summary-track .usage-fill[data-level="bad"] {
+  background: var(--bad);
+}
+
+.summary-fit {
+  min-height: 1.2em;
+  margin-top: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.summary-fit[data-level="good"] {
+  color: var(--good);
+}
+
+.summary-fit[data-level="warn"] {
+  color: var(--warn);
+}
+
+.summary-fit[data-level="bad"] {
+  color: var(--bad);
+}
+
+.summary-actions {
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.summary-actions button {
+  flex: 1 1 150px;
+}
+
+.summary-details {
+  margin-top: 10px;
+}
+
+/* Barra fija de acciones: pegada al borde inferior del área que se desplaza,
+   sólo mientras los botones del Resumen no están a la vista. */
+.action-dock {
+  position: sticky;
+  /* -28px = el relleno inferior de .canvas: así la barra toca el borde real
+     de la ventana y no deja ver el contenido por debajo. */
+  bottom: -28px;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px 16px;
+  padding: 10px 16px 12px;
+  border: 1px solid var(--line);
+  border-bottom: 0;
+  border-radius: 12px 12px 0 0;
+  background: var(--surface);
+  box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.18);
+}
+
+.action-dock-text {
+  margin: 0;
+  min-width: 0;
+  font-size: 0.84rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.action-dock-text[data-level="good"] {
+  color: var(--good);
+}
+
+.action-dock-text[data-level="warn"] {
+  color: var(--warn);
+}
+
+.action-dock-text[data-level="bad"] {
+  color: var(--bad);
+}
+
+/* Selector de disco con el botón de actualizar al lado */
+.destination-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.destination-row .destination-select {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.icon-btn {
+  flex: none;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink-variant);
+}
+
+.icon-btn:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.icon-btn svg {
+  width: 17px;
+  height: 17px;
+}
+
+.icon-btn.spinning svg {
+  animation: kd-spin 0.9s linear infinite;
+}
+
+@keyframes kd-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .icon-btn.spinning svg {
+    animation: none;
+  }
+}
+
 .section-label {
   font-size: 0.68rem;
   font-weight: 600;
@@ -633,6 +948,30 @@ svg {
   white-space: nowrap;
   color: var(--ink-variant);
   font-size: 0.74rem;
+}
+
+/* Carpetas agregadas en Backup: con peso (4 columnas) y, si son muchas, la
+   lista se desplaza por dentro para que el Resumen no quede fuera de vista. */
+#sourcesList {
+  max-height: 160px;
+  overflow-y: auto;
+}
+
+#sourcesList .source-pill {
+  grid-template-columns: minmax(72px, auto) minmax(0, 1fr) auto auto;
+}
+
+/* Peso de la carpeta: "12,4 GB · 3.210 archivos" o "calculando…" */
+.pill-size {
+  font-size: 0.74rem;
+  color: var(--ink-variant);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.pill-size[data-state="done"] {
+  color: var(--ink);
+  font-weight: 600;
 }
 
 .source-pill button {
@@ -810,6 +1149,103 @@ svg {
   height: 14px;
 }
 
+/* "Último backup: hoy 22:14 · 4 archivos copiados" + Abrir carpeta */
+.last-backup {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line-soft);
+  font-size: 0.78rem;
+  color: var(--ink-variant);
+}
+
+.last-backup .link-btn {
+  flex: none;
+  color: var(--primary);
+}
+
+/* --- Excluir ------------------------------------------------------------ */
+
+.exclude-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.exclude-actions button {
+  height: 34px;
+  padding: 0 12px;
+}
+
+#excludeList {
+  margin-top: 4px;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.exclude-patterns {
+  margin-top: 12px;
+  font-size: 0.8rem;
+  color: var(--ink-variant);
+}
+
+.exclude-patterns summary {
+  cursor: pointer;
+  font-weight: 600;
+  width: fit-content;
+}
+
+.exclude-patterns summary:hover {
+  color: var(--primary-deep);
+}
+
+.exclude-patterns-count {
+  font-weight: 500;
+}
+
+.exclude-sub {
+  margin: 10px 0 6px;
+  font-size: 0.76rem;
+  color: var(--ink-variant);
+}
+
+/* Reglas por defecto: casillas en dos columnas */
+.default-excludes {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px 12px;
+}
+
+.default-exclude {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.default-exclude input {
+  margin-top: 2px;
+  accent-color: var(--primary);
+}
+
+.default-exclude span {
+  display: grid;
+  min-width: 0;
+}
+
+.default-exclude strong {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.default-exclude small {
+  font-size: 0.72rem;
+  color: var(--ink-variant);
+}
+
 .repo-path {
   margin-top: 12px;
   padding: 8px 10px;
@@ -840,6 +1276,24 @@ svg {
 
 .option-row:hover {
   background: var(--surface-high);
+}
+
+/* Opción con un desplegable a la derecha (Al cerrar la ventana) */
+.option-select {
+  align-items: center;
+  justify-content: space-between;
+  cursor: default;
+}
+
+.option-select select {
+  flex: none;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 0.8rem;
 }
 
 .switch {
@@ -1076,6 +1530,86 @@ button:disabled {
   margin: 0;
 }
 
+/* Texto del estado y, a su derecha, el botón pequeño de volver a comprobar. */
+.encryption-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.encryption-head p {
+  flex: 1;
+  min-width: 0;
+}
+
+.icon-btn-sm {
+  width: 28px;
+  height: 28px;
+  margin: -3px -4px 0 0;
+  border-color: transparent;
+  background: transparent;
+}
+
+.icon-btn-sm svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* "Omitir por ahora": el aviso queda en una sola línea (sigue en rojo). */
+.encryption-panel[data-collapsed] {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px 6px 14px;
+}
+
+.encryption-panel[data-collapsed] .encryption-head {
+  flex: 1;
+  align-items: center;
+  font-weight: 600;
+}
+
+.encryption-panel[data-collapsed] .notice-actions {
+  margin-top: 0;
+  flex-wrap: nowrap;
+}
+
+/* Campo de contraseña con el ojo de mostrar/ocultar dentro, a la derecha. */
+.password-field {
+  position: relative;
+}
+
+.encrypt-password .password-field input {
+  padding-right: 40px;
+}
+
+.pw-eye {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  width: 32px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink-variant);
+  transform: translateY(-50%);
+}
+
+.pw-eye:hover:not(:disabled) {
+  color: var(--primary);
+  transform: translateY(-50%);
+}
+
+.pw-eye .pw-eye-hide,
+.pw-eye[aria-pressed="true"] .pw-eye-show {
+  display: none;
+}
+
+.pw-eye[aria-pressed="true"] .pw-eye-hide {
+  display: block;
+}
+
 .encryption-panel .notice-actions {
   flex-wrap: wrap;
   margin-top: 10px;
@@ -1100,6 +1634,66 @@ button:disabled {
 
 .encryption-panel[data-state="job"] {
   border-left-color: var(--primary);
+}
+
+/* Contraseña nueva del disco, dentro del panel de cifrado */
+.encrypt-password {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.encrypt-password label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.encrypt-password-min {
+  font-weight: 400;
+  color: var(--ink-variant);
+}
+
+.encrypt-password input {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 0.85rem;
+}
+
+.encrypt-password input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.encrypt-password .encrypt-strength {
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+/* Sin nada que decir, la línea de fuerza no ocupa sitio (no deja hueco). */
+.encrypt-password .encrypt-strength:empty {
+  display: none;
+}
+
+.encrypt-strength[data-level="bad"] {
+  color: var(--bad);
+}
+
+.encrypt-strength[data-level="warn"] {
+  color: var(--warn);
+}
+
+.encrypt-strength[data-level="good"] {
+  color: var(--good);
+}
+
+.encrypt-password .encrypt-password-hint {
+  font-size: 0.76rem;
+  color: var(--ink-variant);
 }
 
 .encryption-progress {
@@ -1246,6 +1840,36 @@ button:disabled {
   background-size: 200% auto;
   animation: shimmer 2s linear infinite;
   transition: width 200ms ease;
+}
+
+.progress-header-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.stop-btn {
+  height: 28px;
+  padding: 0 10px;
+  color: var(--bad);
+}
+
+.stop-btn svg {
+  width: 12px;
+  height: 12px;
+}
+
+.stop-btn:hover:not(:disabled) {
+  background: var(--bad-tint);
+}
+
+/* "Lleva 1:23 · quedan ~3 min · 25 MB/s" */
+.progress-time {
+  margin-top: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
 }
 
 .progress-detail {
@@ -1568,6 +2192,9 @@ button:disabled {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
+  /* Rutas largas: bajan de línea en vez de abrir una barra horizontal. */
+  overflow-wrap: anywhere;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--line-soft);
 }

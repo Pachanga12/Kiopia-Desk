@@ -1,6 +1,6 @@
 {
   "name": "kopia-desk",
-  "version": "2.3.0",
+  "version": "2.4.0",
   "description": "Kopia Desk v2: copias de seguridad incrementales para Windows, con copia verificada y cifrado BitLocker del disco destino",
   "homepage": "https://github.com/Pachanga12/Kopia-Desk#readme",
   "repository": {
@@ -31,7 +31,8 @@
       "icon": "assets/Kopia_Desk_icon.png"
     },
     "asarUnpack": [
-      "lib/bitlocker-helper.ps1"
+      "lib/bitlocker-helper.ps1",
+      "lib/eject-drive.ps1"
     ],
     "files": [
       "main.js",
@@ -39,6 +40,24 @@
       "lib/**/*",
       "renderer/**/*",
       "assets/**/*"
-    ]
+    ],
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "installerLanguages": [
+        "es_ES"
+      ],
+      "language": "3082",
+      "license": "build/licencia.txt",
+      "include": "build/installer.nsh",
+      "createDesktopShortcut": false,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Kopia Desk v2",
+      "uninstallDisplayName": "Kopia Desk v2",
+      "deleteAppDataOnUninstall": false,
+      "installerSidebar": "build/installerSidebar.bmp",
+      "uninstallerSidebar": "build/installerSidebar.bmp"
+    }
   }
 }

@@ -8,9 +8,19 @@ contextBridge.exposeInMainWorld("kopiaAPI", {
   selectRestoreTarget: () => ipcRenderer.invoke("dialog:select-restore-target"),
   quickFolders: () => ipcRenderer.invoke("folders:quick-list"),
 
-  scanDirectory: (dirPath, excludePatterns) => ipcRenderer.invoke("fs:scan-directory", dirPath, excludePatterns),
+  scanDirectory: (dirPath, excludePatterns, excludePaths) =>
+    ipcRenderer.invoke("fs:scan-directory", dirPath, excludePatterns, excludePaths),
+  measureDirectory: (dirPath, excludePatterns, excludePaths) =>
+    ipcRenderer.invoke("fs:measure-directory", dirPath, excludePatterns, excludePaths),
+  selectExclude: (kind, startPath) => ipcRenderer.invoke("dialog:select-exclude", kind, startPath),
+  onDrivesChanged: (callback) => {
+    const handler = () => callback();
+    ipcRenderer.on("drives:changed", handler);
+    return () => ipcRenderer.removeListener("drives:changed", handler);
+  },
   defaultExcludePatterns: () => ipcRenderer.invoke("config:default-excludes"),
   hashFile: (filePath) => ipcRenderer.invoke("fs:hash-file", filePath),
+  hashConcurrency: (sourcePath) => ipcRenderer.invoke("fs:hash-concurrency", sourcePath),
   quickHashFile: (filePath, size) => ipcRenderer.invoke("fs:quick-hash", filePath, size),
 
   loadManifest: (destRoot, sourceName) => ipcRenderer.invoke("manifest:load", destRoot, sourceName),
@@ -28,6 +38,7 @@ contextBridge.exposeInMainWorld("kopiaAPI", {
   lockDrive: (driveRoot, volumeId) => ipcRenderer.invoke("encryption:lock", driveRoot, volumeId),
   unlockDrive: (driveRoot) => ipcRenderer.invoke("encryption:unlock", driveRoot),
   encryptionJobStatus: (driveRoot, action) => ipcRenderer.invoke("encryption:job-status", driveRoot, action),
+  ejectDrive: (driveRoot, volumeId) => ipcRenderer.invoke("drive:eject", driveRoot, volumeId),
 
   journalPeek: (destRoot) => ipcRenderer.invoke("journal:peek", destRoot),
   journalCheck: (destRoot) => ipcRenderer.invoke("journal:check", destRoot),
@@ -35,6 +46,23 @@ contextBridge.exposeInMainWorld("kopiaAPI", {
   backupCopyFiles: (tasks, options) => ipcRenderer.invoke("backup:copy-files", tasks, options),
   backupCopyVersions: (tasks, options) => ipcRenderer.invoke("backup:copy-versions", tasks, options),
   logSave: (destRoot, sourceName, report) => ipcRenderer.invoke("log:save", destRoot, sourceName, report),
+  lastBackup: (destRoot) => ipcRenderer.invoke("backup:last-run", destRoot),
+  cancelCopy: (opId) => ipcRenderer.invoke("copy:cancel", opId),
+  setBusy: (busy) => ipcRenderer.invoke("app:busy", busy),
+  onStoppingForQuit: (callback) => {
+    const handler = () => callback();
+    ipcRenderer.on("app:stopping-for-quit", handler);
+    return () => ipcRenderer.removeListener("app:stopping-for-quit", handler);
+  },
+  notify: (title, body) => ipcRenderer.invoke("app:notify", title, body),
+  getCloseAction: () => ipcRenderer.invoke("app:get-close-action"),
+  setCloseAction: (action) => ipcRenderer.invoke("app:set-close-action", action),
+  onCloseActionChanged: (callback) => {
+    const handler = (_event, action) => callback(action);
+    ipcRenderer.on("window:close-action", handler);
+    return () => ipcRenderer.removeListener("window:close-action", handler);
+  },
+  openBackupFolder: (destRoot) => ipcRenderer.invoke("backup:open-folder", destRoot),
 
   restoreListSources: (backupDrive) => ipcRenderer.invoke("restore:list-sources", backupDrive),
   restoreFullList: (backupDrive, sourceName) => ipcRenderer.invoke("restore:full-list", backupDrive, sourceName),
