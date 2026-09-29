@@ -29,6 +29,20 @@ const {
 } = require("../lib/core.js");
 
 const soloWindows = { skip: process.platform !== "win32" && "requiere Windows (DPAPI, PowerShell)" };
+
+// DPAPI (ConvertFrom-SecureString) necesita el perfil de un usuario con sesión
+// iniciada. En los servidores de GitHub Actions no lo hay y Windows no puede
+// proteger nada: ahí estas pruebas se saltan; en un equipo normal sí corren.
+async function dpapiOSaltar(t) {
+  try {
+    await protectPasswordForHelper("abcd1234");
+    return true;
+  } catch (err) {
+    if (!/no pudo proteger la contraseña/.test(err.message)) throw err;
+    t.skip("DPAPI no disponible en este entorno (sin perfil de usuario, p. ej. GitHub Actions)");
+    return false;
+  }
+}
 const HELPER = path.join(__dirname, "..", "lib", "bitlocker-helper.ps1");
 
 test("isProcessAlive: el propio proceso vive, un PID inexistente no, un PID inválido es desconocido", () => {
@@ -162,7 +176,8 @@ test("protectPasswordForHelper rechaza contraseñas inválidas sin lanzar PowerS
 // Ida y vuelta real con DPAPI: lo que descifra PowerShell (como hace el
 // ayudante con ConvertTo-SecureString) es exactamente lo escrito, con tildes,
 // eñes y símbolos, y el archivo protegido no contiene la contraseña.
-test("protectPasswordForHelper: DPAPI devuelve exactamente la contraseña escrita", soloWindows, async () => {
+test("protectPasswordForHelper: DPAPI devuelve exactamente la contraseña escrita", soloWindows, async (t) => {
+  if (!(await dpapiOSaltar(t))) return;
   for (const password of ["abcd1234", "Contraseña Ñandú €9!", "x".repeat(256)]) {
     const blob = await protectPasswordForHelper(password);
     assert.match(blob, /^[0-9a-f]+$/i);
@@ -201,6 +216,7 @@ function readPasswordFileInHelper(statusFile, passwordFile) {
 }
 
 test("ayudante: Read-KdPasswordFile lee el .pw de su carpeta y lo borra", soloWindows, async (t) => {
+  if (!(await dpapiOSaltar(t))) return;
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "kopia-pw-"));
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const statusFile = path.join(dir, "E-Encrypt.json");
@@ -211,6 +227,7 @@ test("ayudante: Read-KdPasswordFile lee el .pw de su carpeta y lo borra", soloWi
 });
 
 test("ayudante: Read-KdPasswordFile no lee ni borra archivos fuera de su carpeta o sin extensión .pw", soloWindows, async (t) => {
+  if (!(await dpapiOSaltar(t))) return;
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "kopia-pw-"));
   const otra = fs.mkdtempSync(path.join(os.tmpdir(), "kopia-otra-"));
   t.after(() => {
