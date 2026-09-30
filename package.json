@@ -1,6 +1,6 @@
 {
   "name": "kopia-desk",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "Kopia Desk v3: copias de seguridad incrementales para Windows, con copia verificada y copias cifradas con contraseña",
   "homepage": "https://github.com/Pachanga12/Kopia-Desk#readme",
   "repository": {

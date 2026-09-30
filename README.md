@@ -16,7 +16,7 @@ Kopia Desk es un proyecto independiente. No tiene relación con [Kopia](https://
 
 ## Descargar
 
-El instalador para Windows está en **[Releases](https://github.com/Pachanga12/Kopia-Desk/releases/latest)**: descarga `Kopia.Desk.v3.Setup.3.0.0.exe` y ejecútalo. Si no quieres instalar nada, `Kopia.Desk.v3.Portable.3.0.0.exe` se abre directamente.
+El instalador para Windows está en **[Releases](https://github.com/Pachanga12/Kopia-Desk/releases/latest)**: descarga `Kopia.Desk.v3.Setup.3.0.1.exe` y ejecútalo. Si no quieres instalar nada, `Kopia.Desk.v3.Portable.3.0.1.exe` se abre directamente.
 
 - El instalador **no está firmado**: Windows SmartScreen puede mostrar "Windows protegió su PC". Pulsa **Más información → Ejecutar de todas formas**.
 - **Instalar** es un asistente en español: bienvenida, licencia (hay que marcar **"Acepto los términos de la licencia"** para seguir; se muestra la traducción al español y el original en inglés) y final con **"Abrir Kopia Desk ahora"** y **"Crear acceso directo en el escritorio"** (marcadas). Se instala solo para tu usuario, sin pedir permiso de administrador.

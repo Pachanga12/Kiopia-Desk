@@ -973,15 +973,85 @@ svg {
   grid-template-columns: minmax(150px, auto) minmax(0, 1fr) auto;
 }
 
+/* «Cambiar» / «Elegir carpeta» en Comparar. .source-pill button fija 22 × 22 px
+   (para el «×» de quitar carpeta): sin width: auto el texto se salía del botón. */
 .source-pill.selectable .ghost {
+  width: auto;
   height: 28px;
-  padding: 0 10px;
+  padding: 0 12px;
   font-size: 0.76rem;
+  white-space: nowrap;
   border: 1px solid var(--line);
   border-radius: 6px;
   background: transparent;
   color: var(--ink-variant);
   cursor: pointer;
+}
+
+.source-pill.selectable .ghost:hover {
+  background: var(--surface-high);
+  color: var(--ink);
+}
+
+/* Comparar y Restaurar con las copias cifradas y cerradas: se abren ahí mismo
+   (mismo color que el panel del disco cuando están cerradas). */
+.unlock-inline {
+  display: grid;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--line-soft);
+  border-left: 3px solid var(--warn);
+  border-radius: 10px;
+  background: var(--warn-tint);
+}
+
+.unlock-inline-text {
+  margin: 0;
+  font-size: 0.86rem;
+  color: var(--ink);
+}
+
+.unlock-inline-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.unlock-inline-row .password-field {
+  flex: 1 1 240px;
+}
+
+.unlock-inline-row input {
+  width: 100%;
+  height: 36px;
+  padding: 0 38px 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 0.86rem;
+}
+
+.unlock-inline-row input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.unlock-inline-row .primary {
+  height: 36px;
+  padding: 0 18px;
+}
+
+.unlock-inline-error {
+  margin: 0;
+  color: var(--bad);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.unlock-inline-error:empty {
+  display: none;
 }
 
 .destination-select {

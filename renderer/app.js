@@ -523,18 +523,89 @@ function encryptionAllowsBackup() {
   return encryptionState(state.encryption) !== "locked";
 }
 
-// Texto para las listas de Comparar y Restaurar cuando las copias están
-// cifradas y cerradas (o null si el error es otro).
-function lockedBackupText(error) {
-  if (error && !/CRYPTO_LOCKED/.test(error.message)) return null;
-  return "Las copias de " + state.destination.root + " están cifradas. Escribe la contraseña en el panel del disco para verlas.";
+// Comparar y Restaurar con las copias cifradas y cerradas: en vez de mandar al
+// panel del disco (en la pestaña Backup), se abren ahí mismo. Devuelve false si
+// el error es otro (el que llama lo muestra como error).
+function renderLockedList(container, error) {
+  if (error && !/CRYPTO_LOCKED/.test(error.message)) return false;
+  container.classList.remove("empty");
+  container.textContent = "";
+
+  const form = document.createElement("form");
+  form.className = "unlock-inline";
+  const texto = document.createElement("p");
+  texto.className = "unlock-inline-text";
+  texto.textContent =
+    "Las copias de " + state.destination.root + " están cifradas. Escribe la contraseña (o la clave de recuperación) para verlas.";
+
+  const fila = document.createElement("div");
+  fila.className = "unlock-inline-row";
+  const campo = document.createElement("div");
+  campo.className = "password-field";
+  const input = document.createElement("input");
+  input.type = "password";
+  input.autocomplete = "current-password";
+  input.maxLength = 256;
+  input.spellcheck = false;
+  input.setAttribute("aria-label", "Contraseña o clave de recuperación");
+  input.placeholder = "Contraseña o clave de recuperación";
+  const ojo = els.unlockBox.querySelector(".pw-eye").cloneNode(true);
+  ojo.removeAttribute("data-target");
+  ojo.addEventListener("click", () => {
+    const ver = input.type === "password";
+    input.type = ver ? "text" : "password";
+    ojo.setAttribute("aria-pressed", ver ? "true" : "false");
+    const etiqueta = ver ? "Ocultar contraseña" : "Mostrar contraseña";
+    ojo.title = etiqueta;
+    ojo.setAttribute("aria-label", etiqueta);
+  });
+  campo.append(input, ojo);
+  const abrir = document.createElement("button");
+  abrir.type = "submit";
+  abrir.className = "primary";
+  abrir.textContent = "Abrir";
+  fila.append(campo, abrir);
+
+  const aviso = document.createElement("p");
+  aviso.className = "unlock-inline-error";
+  aviso.setAttribute("aria-live", "polite");
+  input.addEventListener("input", () => (aviso.textContent = ""));
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (state.busy || currentEncryptionJob()) return;
+    const secret = input.value;
+    if (!secret) {
+      aviso.textContent = "Escribe la contraseña o la clave de recuperación.";
+      input.focus();
+      return;
+    }
+    abrir.disabled = true;
+    abrir.textContent = "Comprobando...";
+    const result = await openBackupWith(secret);
+    // Si se abrió, la lista ya se volvió a dibujar (afterCryptoChange).
+    if (!result.ok && form.isConnected) {
+      input.value = "";
+      abrir.disabled = false;
+      abrir.textContent = "Abrir";
+      aviso.textContent = result.error;
+      input.focus();
+    }
+  });
+
+  form.append(texto, fila, aviso);
+  container.appendChild(form);
+  setTimeout(() => {
+    if (form.isConnected && container.offsetParent !== null) input.focus();
+  }, 0);
+  return true;
 }
 
 // Antes de leer el backup (buscar cambios, comparar, restaurar): si las copias
 // están cifradas y cerradas, se pide la contraseña en vez de fallar.
 function requireOpenBackup() {
   if (encryptionState(state.encryption) !== "locked") return true;
-  log("Las copias de " + state.destination.root + " están cifradas: escribe la contraseña en el panel del disco para usarlas.");
+  log("Las copias de " + state.destination.root + " están cifradas: escribe la contraseña para usarlas.");
   if (encryptionSkippedHere()) setEncryptionSkipped(false);
   els.unlockPassword.focus();
   return false;
@@ -782,8 +853,7 @@ async function loadComparePreview() {
   }
 
   if (encryptionState(state.encryption) === "locked") {
-    els.comparePreview.classList.add("empty");
-    els.comparePreview.textContent = lockedBackupText();
+    renderLockedList(els.comparePreview);
     return;
   }
 
@@ -808,8 +878,10 @@ async function loadComparePreview() {
     els.comparePreview.classList.remove("empty");
     renderCompareSelectionList();
   } catch (error) {
-    els.comparePreview.classList.add("empty");
-    els.comparePreview.textContent = lockedBackupText(error) || "Error al leer el backup: " + error.message;
+    if (!renderLockedList(els.comparePreview, error)) {
+      els.comparePreview.classList.add("empty");
+      els.comparePreview.textContent = "Error al leer el backup: " + error.message;
+    }
   }
 }
 
@@ -1835,6 +1907,19 @@ async function copyRecoveryKey() {
   els.recoveryCopyBtn.textContent = "Copiada";
 }
 
+// Abre las copias cifradas del disco elegido con la contraseña o la clave de
+// recuperación. La usan el panel del disco y las pestañas Comparar y Restaurar.
+async function openBackupWith(secret) {
+  if (!state.destination) return { ok: false, error: "No hay ningún disco elegido." };
+  const root = state.destination.root;
+  const result = await withEncryptionJob("Unlock", "unlocking", (r) => window.kopiaAPI.cryptoUnlock(r, secret));
+  if (!result.ok) return result;
+  els.unlockError.textContent = "";
+  log("Copias cifradas de " + root + " abiertas.");
+  await afterCryptoChange(root);
+  return result;
+}
+
 async function unlockCurrentDrive() {
   if (!state.destination) return;
   const secret = els.unlockPassword.value;
@@ -1843,18 +1928,13 @@ async function unlockCurrentDrive() {
     els.unlockPassword.focus();
     return;
   }
-  const root = state.destination.root;
-  const result = await withEncryptionJob("Unlock", "unlocking", (r) => window.kopiaAPI.cryptoUnlock(r, secret));
+  const result = await openBackupWith(secret);
   els.unlockPassword.value = "";
   if (!result.ok) {
     renderEncryptionPanel();
     els.unlockError.textContent = result.error;
     els.unlockPassword.focus();
-    return;
   }
-  els.unlockError.textContent = "";
-  log("Copias cifradas de " + root + " abiertas.");
-  await afterCryptoChange(root);
 }
 
 async function lockCurrentDrive() {
@@ -3015,8 +3095,7 @@ async function loadFullRestoreList() {
   }
 
   if (encryptionState(state.encryption) === "locked") {
-    els.restoreFullList.classList.add("empty");
-    els.restoreFullList.textContent = lockedBackupText();
+    renderLockedList(els.restoreFullList);
     return;
   }
 
@@ -3031,8 +3110,10 @@ async function loadFullRestoreList() {
     els.restoreFullList.classList.remove("empty");
     sources.forEach((sourceName) => renderFullRestoreRow(sourceName));
   } catch (error) {
-    els.restoreFullList.classList.add("empty");
-    els.restoreFullList.textContent = lockedBackupText(error) || "Error al leer el backup: " + error.message;
+    if (!renderLockedList(els.restoreFullList, error)) {
+      els.restoreFullList.classList.add("empty");
+      els.restoreFullList.textContent = "Error al leer el backup: " + error.message;
+    }
   }
 }
 
