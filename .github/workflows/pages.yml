@@ -1,0 +1,43 @@
+name: Página web
+
+# Publica la carpeta web/ en GitHub Pages (https://pachanga12.github.io/Kopia-Desk/)
+# cada vez que cambia en main, o a mano desde la pestaña Actions.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "web/**"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Una publicación a la vez; si llega otra, la anterior se cancela.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.despliegue.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configurar Pages
+        uses: actions/configure-pages@v5
+
+      - name: Subir la carpeta web/
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: web
+
+      - name: Publicar
+        id: despliegue
+        uses: actions/deploy-pages@v4

@@ -23,7 +23,7 @@ El instalador para Windows está en **[Releases](https://github.com/Pachanga12/K
 - **Desinstalar** (desde "Agregar o quitar programas") pide confirmación, recuerda que **los backups de tus discos no se borran**, ofrece **"Borrar también mi configuración"** (desmarcada) y termina con "Muchas gracias por usar Kopia Desk". También quita el acceso directo del escritorio.
 - Nada de la app pide permiso de administrador, tampoco cifrar las copias.
 - Para más detalle técnico del código, ver [docs/arquitectura.md](docs/arquitectura.md).
-- Página del producto: [web/index.html](web/index.html) (HTML, CSS y JS sin compilar; se abre con doble clic y se puede publicar tal cual, por ejemplo con GitHub Pages).
+- Página del producto: **https://pachanga12.github.io/Kopia-Desk/** (código en [web/](web/index.html): HTML, CSS y JS sin compilar; se publica sola con GitHub Pages cada vez que cambia, ver `.github/workflows/pages.yml`).
 
 ---
 
