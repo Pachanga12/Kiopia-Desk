@@ -8,3 +8,8 @@ try {
 } catch {
   document.documentElement.classList.add("con-intro");
 }
+// Por seguridad: si app.js no llega a cargar (red, bloqueador), a los 5 s se
+// quita la intro y se muestra todo sin animaciones, en vez de quedarse oculto.
+setTimeout(() => {
+  if (!window.KD_INTRO) document.documentElement.classList.remove("con-intro", "js");
+}, 5000);

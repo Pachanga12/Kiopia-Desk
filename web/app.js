@@ -89,7 +89,9 @@
     const atajos = ["pointerdown", "keydown", "wheel", "touchstart"];
     const quitarAtajos = () => atajos.forEach((ev) => window.removeEventListener(ev, salir));
     atajos.forEach((ev) => window.addEventListener(ev, salir, { passive: true }));
-    setTimeout(salir, DURACION_INTRO);
+    // Contado desde que se abrió la página (la animación empieza al dibujarse, no
+    // cuando llega este archivo): con conexión lenta no dura más.
+    setTimeout(salir, Math.max(300, DURACION_INTRO - performance.now()));
   });
   window.KD_INTRO = introLista; // para las pruebas
 
