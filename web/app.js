@@ -6,7 +6,6 @@
 (function () {
   const $ = (sel, root = document) => root.querySelector(sel);
   const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
-  const sinMovimiento = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   // --- Barra: fondo al bajar, menú en móvil y sección activa --------------------------
   const barra = $("#barra");
@@ -49,27 +48,75 @@
     });
   }
 
+  // --- Aurora de la portada: quieta cuando no se ve (no gasta batería) --------------------
+  const aurora = $("#aurora");
+  if (aurora && "IntersectionObserver" in window) {
+    new IntersectionObserver((entradas) => {
+      for (const en of entradas) aurora.classList.toggle("quieta", !en.isIntersecting);
+    }).observe(aurora);
+  }
+
+  // --- Animación de entrada (una vez por visita) -----------------------------------------
+  // js-activo.js decide en la cabecera si toca (pone .con-intro). Dura ~2 s y se
+  // salta con un clic, una tecla o la rueda. Cuando termina, entra la página.
+  const DURACION_INTRO = 2000;
+  const SALIDA_INTRO = 650;
+  const raiz = document.documentElement;
+  const introLista = new Promise((listo) => {
+    const intro = $("#intro");
+    if (!raiz.classList.contains("con-intro") || !intro) {
+      if (intro) intro.remove();
+      listo();
+      return;
+    }
+    try {
+      sessionStorage.setItem("kd-intro", "1");
+    } catch {
+      // sin almacenamiento: saldrá en cada visita
+    }
+    let saliendo = false;
+    const salir = () => {
+      if (saliendo) return;
+      saliendo = true;
+      quitarAtajos();
+      raiz.classList.add("intro-saliendo");
+      listo(); // la portada empieza a aparecer mientras la intro se desvanece
+      setTimeout(() => {
+        raiz.classList.remove("con-intro", "intro-saliendo");
+        intro.remove();
+      }, SALIDA_INTRO);
+    };
+    const atajos = ["pointerdown", "keydown", "wheel", "touchstart"];
+    const quitarAtajos = () => atajos.forEach((ev) => window.removeEventListener(ev, salir));
+    atajos.forEach((ev) => window.addEventListener(ev, salir, { passive: true }));
+    setTimeout(salir, DURACION_INTRO);
+  });
+  window.KD_INTRO = introLista; // para las pruebas
+
   // --- Aparecer al hacer scroll ---------------------------------------------------------
+  // Después de la intro: si no, los bloques de la portada aparecerían escondidos debajo.
   const aparecen = $$(".aparece");
-  if ("IntersectionObserver" in window && !sinMovimiento) {
-    const obs = new IntersectionObserver(
-      (entradas) => {
-        for (const en of entradas) {
-          if (!en.isIntersecting) continue;
-          en.target.classList.add("visible");
-          obs.unobserve(en.target);
-        }
-      },
-      { rootMargin: "0px 0px -8% 0px", threshold: 0.08 }
-    );
-    // Los hermanos aparecen uno detrás de otro.
-    aparecen.forEach((el) => {
-      const hermanos = [...el.parentElement.children].filter((h) => h.classList.contains("aparece"));
-      el.style.transitionDelay = Math.min(hermanos.indexOf(el), 6) * 70 + "ms";
-      obs.observe(el);
-    });
-  } else {
+  if (!("IntersectionObserver" in window)) {
     aparecen.forEach((el) => el.classList.add("visible"));
+  } else {
+    introLista.then(() => {
+      const obs = new IntersectionObserver(
+        (entradas) => {
+          for (const en of entradas) {
+            if (!en.isIntersecting) continue;
+            en.target.classList.add("visible");
+            obs.unobserve(en.target);
+          }
+        },
+        { rootMargin: "0px 0px -8% 0px", threshold: 0.08 }
+      );
+      // Los hermanos aparecen uno detrás de otro.
+      aparecen.forEach((el) => {
+        const hermanos = [...el.parentElement.children].filter((h) => h.classList.contains("aparece"));
+        el.style.transitionDelay = Math.min(hermanos.indexOf(el), 6) * 70 + "ms";
+        obs.observe(el);
+      });
+    });
   }
 
   // --- Luz que sigue al cursor -------------------------------------------------------------
@@ -87,10 +134,6 @@
   const contar = (el) => {
     const fin = Number(el.dataset.contar);
     const sufijo = el.dataset.sufijo || "";
-    if (sinMovimiento) {
-      el.textContent = fin + sufijo;
-      return;
-    }
     const t0 = performance.now();
     const paso = (t) => {
       const p = Math.min(1, (t - t0) / 1200);
@@ -265,11 +308,6 @@
   // Los nombres se «revuelven» hasta convertirse en el texto final.
   function revolver(els, finales, ms, alTerminar) {
     const signos = "0123456789abcdef";
-    if (sinMovimiento) {
-      els.forEach((el, i) => (el.textContent = finales[i]));
-      alTerminar();
-      return;
-    }
     const t0 = performance.now();
     const paso = (t) => {
       const p = Math.min(1, (t - t0) / ms);
@@ -382,7 +420,7 @@
     });
     const boton = $$(".hito", linea)[i];
     if (enfocar) boton.focus();
-    if (desplazar) boton.scrollIntoView({ block: "nearest", inline: "center", behavior: sinMovimiento ? "auto" : "smooth" });
+    if (desplazar) boton.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" });
 
     detalle.textContent = "";
     detalle.classList.remove("cambia");

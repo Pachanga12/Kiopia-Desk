@@ -18,6 +18,21 @@
     <script src="js-activo.js"></script>
   </head>
   <body>
+    <!-- Animación de entrada: una vez por visita (js-activo.js y app.js). Sin
+         JavaScript no se muestra. -->
+    <div class="intro" id="intro" aria-hidden="true">
+      <div class="intro-centro">
+        <div class="intro-logo">
+          <span class="intro-onda"></span>
+          <span class="intro-onda intro-onda-2"></span>
+          <img src="img/icono.png" alt="" width="104" height="104" />
+        </div>
+        <p class="intro-nombre"><span class="intro-texto">Kopia Desk</span><small>V3</small></p>
+        <p class="intro-lema">Tus archivos, a salvo.</p>
+        <div class="intro-barra"><span></span></div>
+      </div>
+    </div>
+
     <a class="saltar" href="#contenido">Saltar al contenido</a>
 
     <!-- Barra de navegación -->
@@ -44,7 +59,12 @@
     <main id="contenido">
       <!-- Portada -->
       <section class="portada" id="inicio">
-        <div class="portada-fondo" aria-hidden="true"></div>
+        <!-- Aurora: tres luces que flotan despacio (estilos.css → «Aurora»). -->
+        <div class="portada-fondo" id="aurora" aria-hidden="true">
+          <span class="aurora aurora-a"></span>
+          <span class="aurora aurora-b"></span>
+          <span class="aurora aurora-c"></span>
+        </div>
         <div class="contenedor portada-in">
           <a class="novedad aparece" href="#cifrado">
             <span class="novedad-etiqueta">Nuevo en v3.0</span>
