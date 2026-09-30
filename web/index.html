@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kopia Desk v3 — Copias de seguridad para Windows, cifradas si quieres</title>
+    <meta
+      name="description"
+      content="Kopia Desk hace copias de seguridad de tus carpetas en una USB o disco externo, verificando cada archivo, y las cifra con tu contraseña si quieres. Gratis, de código abierto y para cualquier Windows."
+    />
+    <meta name="color-scheme" content="dark" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'"
+    />
+    <link rel="icon" href="img/icono.png" />
+    <link rel="stylesheet" href="estilos.css" />
+    <script src="js-activo.js"></script>
+  </head>
+  <body>
+    <a class="saltar" href="#contenido">Saltar al contenido</a>
+
+    <!-- Barra de navegación -->
+    <header class="barra" id="barra">
+      <div class="barra-in">
+        <a class="marca" href="#inicio" aria-label="Kopia Desk, inicio">
+          <img src="img/icono.png" alt="" width="28" height="28" />
+          <span>Kopia Desk <small>V3</small></span>
+        </a>
+        <nav class="menu" id="menu" aria-label="Secciones">
+          <a href="#funciones">Funciones</a>
+          <a href="#cifrado">Cifrado</a>
+          <a href="#comparativa">Comparativa</a>
+          <a href="#historia">Historia</a>
+          <a href="#preguntas">Preguntas</a>
+        </nav>
+        <a class="boton boton-sm" href="#descargar">Descargar</a>
+        <button class="menu-boton" id="menuBoton" type="button" aria-label="Abrir el menú" aria-expanded="false" aria-controls="menu">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </header>
+
+    <main id="contenido">
+      <!-- Portada -->
+      <section class="portada" id="inicio">
+        <div class="portada-fondo" aria-hidden="true"></div>
+        <div class="contenedor portada-in">
+          <a class="novedad aparece" href="#cifrado">
+            <span class="novedad-etiqueta">Nuevo en v3.0</span>
+            Copias cifradas que se abren en cualquier Windows
+            <span aria-hidden="true">→</span>
+          </a>
+          <h1 class="aparece">Tus archivos, a salvo.<br /><span class="degradado">Y cifrados si lo quieres.</span></h1>
+          <p class="entrada aparece">
+            Kopia Desk copia tus carpetas a una USB o a un disco externo, comprueba cada archivo y sólo copia lo que cambió.
+            Con una contraseña, nadie más puede ver ni tus archivos ni sus nombres.
+          </p>
+          <div class="acciones aparece">
+            <a class="boton boton-grande" href="#descargar">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0-5-5m5 5 5-5M4 19h16" /></svg>
+              Descargar para Windows
+            </a>
+            <a class="boton boton-fantasma boton-grande" href="#como">Cómo funciona</a>
+          </div>
+          <ul class="sellos aparece" aria-label="Datos rápidos">
+            <li>Gratis y de código abierto</li>
+            <li>Windows 10 y 11, también Home</li>
+            <li>Sin permisos de administrador</li>
+          </ul>
+
+          <figure class="ventana aparece luz" id="ventanaPortada">
+            <div class="ventana-marco">
+              <img src="img/app.png" width="1220" height="696" alt="Kopia Desk v3 con una carpeta respaldada en una USB y las copias cifradas abiertas" />
+            </div>
+          </figure>
+        </div>
+      </section>
+
+      <!-- Cifras -->
+      <section class="cifras contenedor" aria-label="Kopia Desk en cifras">
+        <div class="cifra aparece"><strong data-contar="256">0</strong><span>bits de cifrado AES</span></div>
+        <div class="cifra aparece"><strong data-contar="166">0</strong><span>pruebas automáticas</span></div>
+        <div class="cifra aparece"><strong data-contar="100" data-sufijo="%">0</strong><span>de los archivos verificados al copiar</span></div>
+        <div class="cifra aparece"><strong>0</strong><span>datos enviados a internet</span></div>
+      </section>
+
+      <!-- Funciones -->
+      <section class="seccion contenedor" id="funciones">
+        <header class="cabecera aparece">
+          <p class="antetitulo">Funciones</p>
+          <h2>Todo lo que un backup necesita.<br />Nada que estorbe.</h2>
+          <p>Pensado para quien quiere su copia hecha y bien hecha, sin configurar nada raro.</p>
+        </header>
+        <div class="rejilla">
+          <article class="tarjeta grande luz aparece">
+            <div class="icono">
+              <svg viewBox="0 0 24 24"><path d="M12 3l7 3v6c0 4.5-3 7.7-7 9-4-1.3-7-4.5-7-9V6z" /><path d="M9 12l2 2 4-4" /></svg>
+            </div>
+            <h3>Copia verificada</h3>
+            <p>
+              Cada archivo se copia a un temporal, se compara su huella SHA-256 con la del original y sólo entonces ocupa su
+              sitio. Un corte de luz nunca deja un archivo del backup a medias.
+            </p>
+          </article>
+          <article class="tarjeta luz aparece">
+            <div class="icono"><svg viewBox="0 0 24 24"><path d="M4 12a8 8 0 0 1 14-5.3L20 9" /><path d="M20 4v5h-5" /><path d="M20 12a8 8 0 0 1-14 5.3L4 15" /><path d="M4 20v-5h5" /></svg></div>
+            <h3>Sólo lo que cambió</h3>
+            <p>Detecta lo nuevo, lo cambiado y lo borrado. Tú decides qué se copia antes de tocar nada.</p>
+          </article>
+          <article class="tarjeta luz aparece">
+            <div class="icono"><svg viewBox="0 0 24 24"><rect x="4" y="10" width="16" height="11" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /></svg></div>
+            <h3>Cifrado con tu contraseña</h3>
+            <p>Contenido y nombres cifrados con AES-256. Clave de recuperación por si la olvidas.</p>
+          </article>
+          <article class="tarjeta luz aparece">
+            <div class="icono"><svg viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2" /><path d="M11 18h2" /></svg></div>
+            <h3>Se abre en otro PC</h3>
+            <p>En la USB quedan <b>Abrir-KopiaDesk</b> y Kopia Desk portable: tus archivos, en cualquier Windows, sin instalar nada.</p>
+          </article>
+          <article class="tarjeta luz aparece">
+            <div class="icono"><svg viewBox="0 0 24 24"><path d="M12 8v5l3 2" /><circle cx="12" cy="12" r="9" /></svg></div>
+            <h3>Versiones anteriores</h3>
+            <p>Antes de sobrescribir un archivo cambiado, guarda cómo era. Deshacer un error es posible.</p>
+          </article>
+          <article class="tarjeta luz aparece">
+            <div class="icono"><svg viewBox="0 0 24 24"><path d="M3 7a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z" /><path d="M12 11v5m-2.5-2.5L12 16l2.5-2.5" /></svg></div>
+            <h3>Restaura lo que quieras</h3>
+            <p>Una carpeta entera, sólo algunas subcarpetas o únicamente lo que falta en tu PC.</p>
+          </article>
+          <article class="tarjeta ancha luz aparece">
+            <div class="icono"><svg viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z" /></svg></div>
+            <h3>Rápido y a tu ritmo</h3>
+            <p>
+              Tiempo estimado antes de empezar, botón para detener sin dejar nada a medias, sigue copiando en segundo plano y
+              la copia cifrada va igual de rápida que la normal.
+            </p>
+          </article>
+        </div>
+      </section>
+
+      <!-- Cómo funciona -->
+      <section class="seccion contenedor" id="como">
+        <header class="cabecera aparece">
+          <p class="antetitulo">Cómo funciona</p>
+          <h2>Tres pasos y listo.</h2>
+          <p>La primera vez, un tutorial te enseña cada parte de la ventana.</p>
+        </header>
+        <ol class="pasos">
+          <li class="paso aparece"><span class="paso-num">1</span><h3>Elige tus carpetas</h3><p>Fotos, Documentos o cualquier otra, con un clic.</p></li>
+          <li class="paso aparece"><span class="paso-num">2</span><h3>Conecta tu USB</h3><p>Kopia Desk la reconoce aunque cambie de letra. Si quieres, ponle contraseña.</p></li>
+          <li class="paso aparece"><span class="paso-num">3</span><h3>Escanea y copia</h3><p>Ves qué se va a copiar, si cabe y cuánto tarda. Pulsas «Copiar».</p></li>
+        </ol>
+        <figure class="ventana ventana-media aparece luz">
+          <div class="ventana-marco">
+            <img src="img/tutorial.png" width="1220" height="696" loading="lazy" alt="El tutorial de Kopia Desk resaltando el paso «Elige qué respaldar»" />
+          </div>
+          <figcaption>El tutorial resalta cada parte la primera vez que abres la app.</figcaption>
+        </figure>
+      </section>
+
+      <!-- Demo del cifrado -->
+      <section class="seccion contenedor" id="cifrado">
+        <header class="cabecera aparece">
+          <p class="antetitulo">Cifrado · pruébalo</p>
+          <h2>Así se ve tu USB<br />con y sin contraseña.</h2>
+          <p>
+            Pulsa <b>Cifrar</b> y mira qué vería alguien que encontrara tu USB. Los nombres se calculan de verdad aquí, en tu
+            navegador, con HMAC-SHA-256, como hace Kopia Desk.
+          </p>
+        </header>
+
+        <div class="demo aparece" id="demo" data-estado="claro">
+          <div class="demo-barra">
+            <div class="demo-disco">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="7" width="18" height="10" rx="2" /><path d="M7 12h.01M11 12h6" /></svg>
+              <span>USB-KOPIA (E:) › KopiaDesk_Backup</span>
+            </div>
+            <span class="demo-estado" id="demoEstado" aria-live="polite">Sin cifrar: cualquiera lo ve todo</span>
+          </div>
+          <div class="demo-cuerpo">
+            <ul class="demo-lista" id="demoLista" aria-label="Contenido de la USB"></ul>
+            <aside class="demo-vista" aria-label="Vista previa del archivo">
+              <p class="demo-vista-titulo" id="demoVistaTitulo">notas privadas.txt</p>
+              <pre class="demo-vista-texto" id="demoVista"></pre>
+            </aside>
+          </div>
+          <div class="demo-controles">
+            <button class="boton" type="button" id="demoCifrar">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /></svg>
+              Cifrar
+            </button>
+            <form class="demo-abrir" id="demoAbrir" hidden>
+              <label for="demoClave">Contraseña</label>
+              <input id="demoClave" type="password" autocomplete="off" placeholder="Escribe: kopia2026" />
+              <button class="boton" type="submit">Abrir</button>
+              <span class="demo-error" id="demoError" aria-live="polite"></span>
+            </form>
+          </div>
+        </div>
+
+        <div class="duo">
+          <figure class="ventana aparece luz">
+            <div class="ventana-marco">
+              <img src="img/clave.png" width="1220" height="696" loading="lazy" alt="Kopia Desk mostrando la clave de recuperación una sola vez" />
+            </div>
+            <figcaption><b>Clave de recuperación.</b> Se muestra una sola vez y no se sigue hasta confirmar que la guardaste.</figcaption>
+          </figure>
+          <figure class="ventana aparece luz">
+            <div class="ventana-marco ventana-marco-claro">
+              <img src="img/abrir.png" width="876" height="619" loading="lazy" alt="La ventana de Abrir-KopiaDesk con las carpetas del backup cifrado" />
+            </div>
+            <figcaption><b>Sin la app.</b> Doble clic en Abrir-KopiaDesk en la USB: pide la contraseña y te deja ver y sacar tus archivos.</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <!-- Comparativa -->
+      <section class="seccion contenedor" id="comparativa">
+        <header class="cabecera aparece">
+          <p class="antetitulo">Comparativa</p>
+          <h2>¿Por qué no BitLocker o VeraCrypt?</h2>
+          <p>Son muy buenos, pero no pensados para llevarte tu backup a cualquier PC.</p>
+        </header>
+        <div class="tabla-envoltura aparece" role="region" aria-label="Comparativa" tabindex="0">
+          <table class="tabla">
+            <thead>
+              <tr>
+                <th scope="col"></th>
+                <th scope="col" class="destacada">Kopia Desk v3</th>
+                <th scope="col">BitLocker</th>
+                <th scope="col">VeraCrypt portable</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><th scope="row">Cifrar desde Windows Home</th><td class="destacada si">Sí</td><td class="no">No</td><td class="si">Sí</td></tr>
+              <tr><th scope="row">Abrir en otro PC sin instalar nada</th><td class="destacada si">Sí</td><td class="si">Sí</td><td class="no">No</td></tr>
+              <tr><th scope="row">Sin permisos de administrador</th><td class="destacada si">Sí</td><td class="parcial">Para abrir</td><td class="no">No</td></tr>
+              <tr><th scope="row">Cualquier USB (FAT32, exFAT, NTFS)</th><td class="destacada si">Sí</td><td class="si">Sí</td><td class="si">Sí</td></tr>
+              <tr><th scope="row">Hace el backup por ti</th><td class="destacada si">Sí</td><td class="no">No</td><td class="no">No</td></tr>
+              <tr><th scope="row">Gratis y de código abierto</th><td class="destacada si">Sí</td><td class="no">No</td><td class="si">Sí</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="nota aparece">
+          BitLocker cifra el disco entero y lo abre cualquier Windows, pero sólo se puede activar desde Windows Pro. VeraCrypt
+          necesita instalar un controlador, y en un PC ajeno casi nunca tendrás permiso de administrador.
+        </p>
+      </section>
+
+      <!-- Historia -->
+      <section class="seccion contenedor" id="historia">
+        <header class="cabecera aparece">
+          <p class="antetitulo">Historia</p>
+          <h2>De una página web a la v3.</h2>
+          <p>Catorce versiones en tres meses. Pulsa una para ver qué trajo.</p>
+        </header>
+        <div class="historia aparece">
+          <div class="linea" id="linea" role="tablist" aria-label="Versiones"></div>
+          <article class="detalle" id="detalle" role="tabpanel" aria-live="polite"></article>
+        </div>
+      </section>
+
+      <!-- Preguntas -->
+      <section class="seccion contenedor contenedor-estrecho" id="preguntas">
+        <header class="cabecera aparece">
+          <p class="antetitulo">Preguntas</p>
+          <h2>Lo que más se pregunta.</h2>
+        </header>
+        <div class="preguntas" id="listaPreguntas">
+          <details class="pregunta aparece">
+            <summary>¿Y si olvido la contraseña?</summary>
+            <p>
+              Usa la clave de recuperación que Kopia Desk te mostró al cifrar: abre las copias igual que la contraseña y te
+              deja poner una nueva. Si pierdes las dos, nadie puede abrir las copias, ni siquiera Kopia Desk. Por eso la app
+              no te deja seguir hasta que confirmas que la guardaste fuera de la USB.
+            </p>
+          </details>
+          <details class="pregunta aparece">
+            <summary>¿Funciona en Windows Home?</summary>
+            <p>Sí. Todo, incluido el cifrado, funciona en Windows 10 y 11, Home o Pro, y sin permisos de administrador.</p>
+          </details>
+          <details class="pregunta aparece">
+            <summary>¿Necesito Kopia Desk para recuperar mis archivos?</summary>
+            <p>
+              No. Si las copias no están cifradas, son carpetas normales que abres desde el Explorador. Si están cifradas,
+              haz doble clic en <b>Abrir-KopiaDesk</b> dentro de la USB, o abre <b>Kopia Desk (portable)</b>, que viaja en la
+              misma USB y funciona sin instalar.
+            </p>
+          </details>
+          <details class="pregunta aparece">
+            <summary>¿Qué pasa si se desconecta la USB o se va la luz a mitad?</summary>
+            <p>
+              Nada grave: cada archivo se copia primero a un temporal y sólo sustituye al anterior cuando está entero y
+              verificado. Al volver, Kopia Desk avisa de lo que quedó a medias, lo limpia y lo copia en el siguiente backup.
+            </p>
+          </details>
+          <details class="pregunta aparece">
+            <summary>¿Y si alguien borra Abrir-KopiaDesk de la USB?</summary>
+            <p>Es de solo lectura, así que Windows avisa antes de borrarlo. Y si aun así desaparece, Kopia Desk lo vuelve a poner la próxima vez que conectes la USB.</p>
+          </details>
+          <details class="pregunta aparece">
+            <summary>¿Envía algo a internet?</summary>
+            <p>No. Kopia Desk no tiene cuenta, ni nube, ni estadísticas: tus archivos van de tu PC a tu disco y a ningún otro sitio.</p>
+          </details>
+          <details class="pregunta aparece">
+            <summary>¿Cuánto cuesta?</summary>
+            <p>Nada. Es gratis y de código abierto, con licencia MIT.</p>
+          </details>
+        </div>
+      </section>
+
+      <!-- Descargar -->
+      <section class="final" id="descargar">
+        <div class="final-fondo" aria-hidden="true"></div>
+        <div class="contenedor final-in aparece">
+          <img src="img/icono.png" alt="" width="72" height="72" />
+          <h2>Tu primer backup, en cinco minutos.</h2>
+          <p>Descarga Kopia Desk v3, elige tus carpetas y conecta tu USB.</p>
+          <a class="boton boton-grande" href="https://github.com/Pachanga12/Kopia-Desk/releases/latest">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0-5-5m5 5 5-5M4 19h16" /></svg>
+            Descargar Kopia Desk v3
+          </a>
+          <p class="final-datos">Versión 3.0.0 · Windows 10 y 11 (64 bits) · Instalador en español · Incluye la versión portable</p>
+        </div>
+      </section>
+    </main>
+
+    <footer class="pie">
+      <div class="contenedor pie-in">
+        <p class="marca">
+          <img src="img/icono.png" alt="" width="22" height="22" />
+          <span>Kopia Desk</span>
+        </p>
+        <p>Software libre con licencia MIT · © 2026 Pachanga12 y colaboradores</p>
+        <p class="pie-aviso">Kopia Desk es un proyecto independiente y no tiene relación con Kopia (kopia.io).</p>
+        <p><a href="https://github.com/Pachanga12/Kopia-Desk">Código en GitHub</a></p>
+      </div>
+    </footer>
+
+    <script src="versiones.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

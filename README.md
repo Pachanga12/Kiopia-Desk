@@ -1,14 +1,14 @@
-# Kopia Desk v2
+# Kopia Desk v3
 
 [![CI](https://github.com/Pachanga12/Kopia-Desk/actions/workflows/ci.yml/badge.svg)](https://github.com/Pachanga12/Kopia-Desk/actions/workflows/ci.yml)
 ![Plataforma](https://img.shields.io/badge/plataforma-Windows%2010%2F11-0078D6?logo=windows&logoColor=white)
 ![Electron](https://img.shields.io/badge/Electron-43-47848F?logo=electron&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-154-brightgreen?logo=nodedotjs&logoColor=white)
+![Tests](https://img.shields.io/badge/tests-166-brightgreen?logo=nodedotjs&logoColor=white)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-blue)](LICENSE)
 
-Aplicación de escritorio para copias de seguridad incrementales en Windows. Permite respaldar carpetas como Imágenes, Documentos o Descargas a discos externos o USB, y cifrar, desbloquear y bloquear el disco destino con BitLocker desde la propia app.
+Aplicación de escritorio para copias de seguridad incrementales en Windows. Permite respaldar carpetas como Imágenes, Documentos o Descargas a discos externos o USB y, si quieres, guardarlas **cifradas con una contraseña**: el contenido y también los nombres de archivos y carpetas. Las copias cifradas se abren en cualquier Windows 10/11 (también Home) con Kopia Desk o, sin ella, con el programa que queda en el propio disco.
 
-> **Estado: versión 2.0.** Este README documenta lo que la app hace hoy, los problemas detectados en revisión de código (y cuáles ya están corregidos), y el trabajo pendiente. Antes de confiarle datos que no puedas perder, lee las secciones [Problemas conocidos](#problemas-conocidos) y [Limitaciones](#limitaciones).
+> **Estado: versión 3.0.** Este README documenta lo que la app hace hoy, los problemas detectados en revisión de código (y cuáles ya están corregidos), y el trabajo pendiente. Antes de confiarle datos que no puedas perder, lee las secciones [Problemas conocidos](#problemas-conocidos) y [Limitaciones](#limitaciones).
 
 Kopia Desk es un proyecto independiente. No tiene relación con [Kopia](https://kopia.io) (la herramienta de backup en Go).
 
@@ -16,13 +16,14 @@ Kopia Desk es un proyecto independiente. No tiene relación con [Kopia](https://
 
 ## Descargar
 
-El instalador para Windows está en **[Releases](https://github.com/Pachanga12/Kopia-Desk/releases/latest)**: descarga `Kopia.Desk.v2.Setup.2.4.0.exe` y ejecútalo.
+El instalador para Windows está en **[Releases](https://github.com/Pachanga12/Kopia-Desk/releases/latest)**: descarga `Kopia.Desk.v3.Setup.3.0.0.exe` y ejecútalo. Si no quieres instalar nada, `Kopia.Desk.v3.Portable.3.0.0.exe` se abre directamente.
 
 - El instalador **no está firmado**: Windows SmartScreen puede mostrar "Windows protegió su PC". Pulsa **Más información → Ejecutar de todas formas**.
 - **Instalar** es un asistente en español: bienvenida, licencia (hay que marcar **"Acepto los términos de la licencia"** para seguir; se muestra la traducción al español y el original en inglés) y final con **"Abrir Kopia Desk ahora"** y **"Crear acceso directo en el escritorio"** (marcadas). Se instala solo para tu usuario, sin pedir permiso de administrador.
 - **Desinstalar** (desde "Agregar o quitar programas") pide confirmación, recuerda que **los backups de tus discos no se borran**, ofrece **"Borrar también mi configuración"** (desmarcada) y termina con "Muchas gracias por usar Kopia Desk". También quita el acceso directo del escritorio.
-- Cifrar o bloquear un disco con BitLocker pide el permiso de administrador de Windows en ese momento; el resto de la app no lo necesita.
+- Nada de la app pide permiso de administrador, tampoco cifrar las copias.
 - Para más detalle técnico del código, ver [docs/arquitectura.md](docs/arquitectura.md).
+- Página del producto: [web/index.html](web/index.html) (HTML, CSS y JS sin compilar; se abre con doble clic y se puede publicar tal cual, por ejemplo con GitHub Pages).
 
 ---
 
@@ -32,7 +33,7 @@ El instalador para Windows está en **[Releases](https://github.com/Pachanga12/K
 1. [Cómo ejecutar](#cómo-ejecutar)
 2. [Qué hace](#qué-hace)
 3. [Estructura de backup en disco destino](#estructura-de-backup-en-disco-destino)
-4. [Cifrado del disco destino (BitLocker)](#cifrado-del-disco-destino-bitlocker)
+4. [Cifrado de las copias](#cifrado-de-las-copias)
 5. [Problemas conocidos](#problemas-conocidos)
 6. [Limitaciones](#limitaciones)
 7. [Consideraciones técnicas](#consideraciones-técnicas)
@@ -63,7 +64,7 @@ npm test
 npm run lint   # comprobación de sintaxis de main, preload, core y renderer
 ```
 
-`test/core.test.js` cubre la lógica base; `test/integridad.test.js` cubre los arreglos de integridad (problemas 1 a 5), el informe de escaneo y la detección de disco y cifrado; `test/bitlocker.test.js` cubre el lanzamiento del ayudante de BitLocker, la contraseña del panel (DPAPI de ida y vuelta, lectura y borrado del `.pw` en el ayudante) y expulsar; `test/disco-sistema.test.js` cubre la protección del disco del sistema y los cambios de disco; `test/excluir.test.js` cubre excluir carpetas o archivos concretos, la lista de excluidos con su regla, el resumen del último backup y detener una copia. El ayudante en sí (`lib/bitlocker-helper.ps1`) necesita administrador y se probó contra discos virtuales (ver [Plan de pruebas](#plan-de-pruebas)). Los tests y el lint corren en cada push en GitHub Actions (Windows y Ubuntu, Node 20 y 22); en Ubuntu se omiten los que dependen de Windows (letras de unidad, PowerShell, bloqueos de archivo reales).
+`test/core.test.js` cubre la lógica base; `test/integridad.test.js` cubre los arreglos de integridad (problemas 1 a 5), el informe de escaneo y la detección de disco y cifrado; `test/cifrado.test.js` cubre el cifrado (caja de claves, clave de recuperación, archivos alterados, nombres opacos) y que PowerShell lo entienda byte a byte; `test/cifrado-copia.test.js` y `test/almacen.test.js` cubren la copia, las versiones y la restauración cifradas y que en el disco no quede nada legible; `test/recuperar.test.js` recupera un backup cifrado **sin la app**, con el script que queda en el disco; `test/windows.test.js` cubre la contraseña, expulsar y las consultas a Windows; `test/disco-sistema.test.js` cubre la protección del disco del sistema y los cambios de disco; `test/excluir.test.js` cubre excluir carpetas o archivos concretos, la lista de excluidos con su regla, el resumen del último backup y detener una copia; `test/restore-tree.test.js` cubre restaurar por carpetas; `test/veracrypt.test.js` cubre las unidades de VeraCrypt. Los tests y el lint corren en cada push en GitHub Actions (Windows y Ubuntu, Node 20 y 22); en Ubuntu se omiten los que dependen de Windows (letras de unidad, PowerShell, bloqueos de archivo reales).
 
 ### Empaquetar como instalador
 
@@ -72,7 +73,7 @@ $env:CSC_IDENTITY_AUTO_DISCOVERY = "false"   # sin certificado de firma
 npm run build
 ```
 
-Genera `dist/Kopia Desk v2 Setup 2.1.0.exe` (instalador NSIS). El instalador **no está firmado** todavía (ver [Seguridad](#seguridad)). Más detalles en [docs/arquitectura.md](docs/arquitectura.md#notas-de-desarrollo).
+Genera, con `scripts/build.js`, `dist/portable/KopiaDesk-Portable.exe` (Kopia Desk portable, un solo `.exe` que se abre sin instalar, ~90 MB) y `dist/Kopia Desk v3 Setup <versión>.exe` (instalador NSIS, que lleva dentro la portable para copiarla a los discos de backup). El instalador **no está firmado** todavía (ver [Seguridad](#seguridad)). Más detalles en [docs/arquitectura.md](docs/arquitectura.md#notas-de-desarrollo).
 
 En GitHub, `.github/workflows/release.yml` compila y publica el instalador automáticamente al subir un tag de versión (por ejemplo `v2.1.1`), o a mano desde la pestaña *Actions*.
 
@@ -81,15 +82,17 @@ En GitHub, `.github/workflows/release.yml` compila y publica el instalador autom
 ## Qué hace
 
 - **Selección de carpetas origen** con el diálogo nativo de Windows o con accesos rápidos a Imágenes, Documentos, Descargas, Música, Videos y Escritorio (solo aparecen las que existen). Si dos carpetas terminan con el mismo nombre, la segunda se renombra (carpeta padre o número) para no compartir manifiesto.
-- **Bienvenida** mientras no hay carpetas: "Tus archivos, resguardados" y tres pasos (elegir carpetas, elegir el disco, revisar y confirmar) que se marcan con ✔ al cumplirse; los dos primeros llevan directo a "Añadir carpeta" y al selector de disco.
+- **Tutorial** la primera vez que se abre la app recién instalada: sombrea la ventana y deja iluminada una parte cada vez (Origen, Destino, cifrado, Resumen, Excluir, Opciones, Comparar/Restaurar y Registro), con una explicación y **Atrás / Siguiente / Saltar tutorial** (también con las flechas y Esc). Después no vuelve a salir solo; se repite desde **Opciones → Ver el tutorial**. Quien ya usaba la app (tiene carpetas guardadas) no lo ve al actualizar.
+- **Kopia Desk portable en el disco de backup:** al terminar cada backup, la app deja en `KopiaDesk_Backup\Kopia Desk (portable).exe` la versión portable (se abre en cualquier Windows sin instalar nada), de solo lectura. Sólo se copia la primera vez o cuando cambia de versión, y no si el disco se quedaría sin espacio.
 - **Peso de cada carpeta** al agregarla ("12,4 GB · 3.210 archivos"), con las mismas exclusiones que el backup.
 - **Resumen antes de copiar**, debajo de Origen: cuánto pesa lo seleccionado, cuánto se va a copiar de verdad tras escanear (en un backup incremental, solo lo nuevo y lo cambiado) y el espacio libre del destino, con **"Cabe" / "No cabe"** y los botones **Escanear** y **Copiar**. Si esos botones quedan fuera de la vista (muchas carpetas o pantalla baja), aparece una barra fija abajo con el mismo veredicto y los mismos botones.
 - **Tiempo de la copia:** antes de copiar, el Resumen estima cuánto tardará con la velocidad medida en ese disco en backups anteriores (incluye guardar las versiones anteriores). Durante la copia: "Lleva 1:23 · quedan ~3 min · 25 MB/s"; al terminar, el registro dice cuánto tardó.
 - **Detener:** un botón en la barra de progreso (backup y restauración). Deja de empezar archivos nuevos; el que está en curso termina y se verifica, así que nunca queda nada a medias. Lo copiado queda registrado y el resto sale como pendiente en el próximo escaneo.
 - **Segundo plano:** al pulsar la X, la app pregunta si cerrar o seguir en segundo plano (con un icono junto al reloj de Windows para volver o salir y un aviso al terminar la copia); la elección se puede recordar y cambiar en Opciones. Si se cierra con una copia en curso, se detiene como con "Detener" antes de salir.
 - **Último backup** en la tarjeta del disco destino: cuándo fue, cuántos archivos copió y un botón **Abrir carpeta** para verlo en el Explorador. Sale de los informes que la app ya deja en el disco en cada copia.
-- **Detección de discos/USB** conectados con espacio disponible y sistema de archivos (NTFS, exFAT, FAT32). La lista **se actualiza sola al conectar o quitar una USB** (aviso `WM_DEVICECHANGE` de Windows, sin consultar a intervalos) y conserva el disco elegido; también hay un botón ↻ junto al selector.
-- **Cifrado del destino con BitLocker desde la app:** muestra el estado al elegir el disco (sin permisos de administrador), cifra con la contraseña escrita en el propio panel y clave de recuperación obligatoria, desbloquea con el cuadro de Windows, bloquea al terminar el backup si se pide y expulsa el disco de forma segura. Ver [Cifrado](#cifrado-del-disco-destino-bitlocker).
+- **Detección de discos/USB** conectados con espacio disponible y sistema de archivos (NTFS, exFAT, FAT32). La lista **se actualiza sola al conectar o quitar una USB** (aviso `WM_DEVICECHANGE` de Windows, sin consultar a intervalos) y conserva el disco elegido; también hay un botón ↻ junto al selector. **El disco de backup vuelve a elegirse solo:** si lo desconectas (o lo expulsas) y lo vuelves a conectar, aunque Windows le dé otra letra, la app lo reconoce por su identidad y lo elige otra vez; al abrir la app también lo busca por su identidad. Si en su letra aparece otro disco, no se elige solo.
+- **Copias cifradas con contraseña** (opcional, por disco): contenido y nombres cifrados con AES-256, clave de recuperación que se muestra una sola vez, abrir y cerrar desde el panel del disco y cambiar la contraseña. Funciona en cualquier Windows y en cualquier disco (FAT32, exFAT, NTFS), sin administrador. En el disco queda **Abrir-KopiaDesk.cmd** para ver y sacar archivos en otro PC sin Kopia Desk. Ver [Cifrado](#cifrado-de-las-copias).
+- **Expulsar** el disco de forma segura desde el panel del disco.
 - **Escaneo recursivo** asíncrono con barra de progreso.
 - **Excluir lo que no quieres copiar**, en su propia tarjeta bajo el Resumen: con **Carpeta** y **Archivo** eliges con el explorador carpetas o archivos concretos dentro de tus carpetas de origen (se excluye esa ruta, no todo lo que se llame igual) y se quitan de la lista con ×. Plegado en **Por nombre o tipo** están las reglas por defecto como casillas (archivos de Windows `desktop.ini`/`Thumbs.db`, temporales `*.tmp`/`~$*`, `.git` y `node_modules`; desmarcar una hace que se copie) y los patrones propios (`*.iso`, `Backups_temp`). `$RECYCLE.BIN` y `System Volume Information` se ignoran siempre. Los resultados del escaneo muestran el grupo **Excluidos por filtros** con cada elemento y la regla que lo dejó fuera. Al cambiar las exclusiones se vuelve a medir el peso y hay que volver a escanear.
 - **Informe de lo que queda fuera:** cada carpeta muestra un grupo "Omitidos" con enlaces/junctions (no se siguen), carpetas sin permiso y archivos ilegibles, más la cantidad de excluidos por filtros. Todo queda también en el log JSON del backup.
@@ -107,7 +110,7 @@ En GitHub, `.github/workflows/release.yml` compila y publica el instalador autom
 - **Verificación profunda opcional:** revisa por SHA-256 completo también los archivos que conservan tamaño y fecha.
 - **Journal de operaciones:** detecta backups interrumpidos (corte de luz, USB desconectado), explica qué pasó y pide confirmación antes de borrar los temporales que quedaron a medias. Nunca borra archivos del backup.
 - **Pestaña Comparar:** compara carpetas del backup contra carpetas locales elegidas, detecta faltantes y permite restaurar solo esos. Detecta archivos que figuran como respaldados pero ya no están en el disco de backup.
-- **Pestaña Restaurar:** trae una carpeta completa del backup a cualquier ubicación, útil tras formatear o con otro perfil de Windows. La restauración usa la misma copia verificada.
+- **Pestaña Restaurar:** trae una carpeta del backup a cualquier ubicación, útil tras formatear o con otro perfil de Windows. Con **Elegir carpetas** se abre su árbol de subcarpetas con casillas (archivos y tamaño de cada una) para restaurar sólo las marcadas. Siempre vuelve **dentro de una carpeta con su nombre**: «Capturas» restaurada en `D:\Recuperado` queda en `D:\Recuperado\Capturas\…`, con sus subcarpetas. La restauración usa la misma copia verificada.
 - **Tema claro/oscuro**, ventana sin marco con controles propios y persistencia de configuración.
 - **Instancia única:** si Kopia Desk ya está abierta, abrirla de nuevo trae al frente la ventana existente en vez de abrir otra (dos instancias podrían pisarse los manifiestos y la configuración).
 
@@ -130,101 +133,96 @@ D:\KopiaDesk_Backup\
 
 Los archivos respaldados son archivos normales. Si la app no está disponible, se pueden abrir y copiar directamente desde el Explorador. Las versiones anteriores se recuperan descomprimiendo el `.gz` con cualquier herramienta (7-Zip, por ejemplo).
 
+Con las copias cifradas (ver [Cifrado](#cifrado-de-las-copias)) no queda ningún nombre en claro:
+
+```
+D:\KopiaDesk_Backup\
+├── Abrir-KopiaDesk.cmd       doble clic: ver y sacar archivos sin la app
+├── Recuperar-KopiaDesk.ps1   lo que abre Abrir-KopiaDesk.cmd (y recuperación por consola)
+├── LEEME-CIFRADO.txt
+├── datos\3f\9a1c…e2.kdc       un archivo cifrado por archivo respaldado (nombre opaco)
+└── .kopia-data\
+    ├── cifrado.json          la clave maestra, envuelta con la contraseña y con la clave de recuperación
+    ├── cifrado.copia.json    copia de la anterior
+    ├── manifests\<opaco>.kdc registro cifrado de cada carpeta: su nombre real y el de cada archivo
+    ├── versions\<fecha>\     versiones anteriores (cifradas) + indice.kdc
+    ├── logs\, journal\
+    ├── indice.kdc            índice de deduplicación (cifrado)
+    └── fuentes.kdc           rutas de origen recordadas (cifrado)
+```
+
 Un archivo `*.kopia-tmp` dentro del backup es una copia que quedó a medias por un corte; se puede borrar sin perder nada (la app lo hace al confirmar la limpieza del journal).
 
 ---
 
-## Cifrado del disco destino (BitLocker)
+## Cifrado de las copias
 
-> **Estado: fases 1, 2 y 3 implementadas.** Desde la app se detecta el estado, se cifra, se desbloquea y se bloquea el disco destino, sin pasar por el panel de BitLocker de Windows.
+> **Estado: v3.0 en desarrollo.** Sustituye al cifrado con BitLocker de la v2, que no se podía usar en Windows Home.
 
-### Por qué cifrar el disco y no los archivos
+### Qué se cifra y qué no
 
-El backup se guarda en claro. Un USB perdido expone todo su contenido, incluidos `sources.json` y los logs, que contienen rutas completas con el nombre de usuario de Windows. Se evaluó cifrar archivo por archivo dentro de la app y se descartó: cifrar el volumen completo con BitLocker protege también los metadatos, no requiere reimplementar criptografía, y el disco sigue siendo legible en cualquier Windows con la contraseña, sin necesitar Kopia Desk para restaurar.
+Se cifran **las copias de Kopia Desk**, no el disco entero: el contenido de cada archivo y también los nombres de archivos y carpetas, los registros (manifiestos), los informes y el índice de deduplicación. En el disco sólo quedan nombres opacos (`datos\3f\9a1c…e2.kdc`) y las fechas de cada backup. Lo que guardes a mano en el disco, fuera de Kopia Desk, no se cifra.
 
-### Qué ediciones de Windows lo permiten
+Es opcional y se decide por disco. Para no mezclar, sólo se activa en un disco **sin** backup previo (o vacío); un disco con copias sin cifrar lo explica y propone usar otro.
 
-| Acción | Windows Pro / Enterprise / Education | Windows Home |
-|---|---|---|
-| Cifrar un USB/disco con BitLocker To Go | Sí | No |
-| Desbloquear y usar un USB ya cifrado | Sí | Sí |
+### Por qué así y no BitLocker o VeraCrypt
 
-*A verificar en cada versión de Windows soportada antes del release; la disponibilidad de BitLocker por edición la define Microsoft y puede cambiar.*
+| | Cifrar desde Windows Home | Abrir en otro PC sin instalar nada | Pide administrador |
+|---|---|---|---|
+| BitLocker (v2) | No | Sí (pide la clave al conectar) | Para cifrar |
+| VeraCrypt portable | Sí (instalado) | No: necesita un controlador | Sí |
+| SecurStick | Sí | Sí | No, pero es cerrado, lento y depende de WebDAV, que Microsoft declaró obsoleto |
+| **Kopia Desk v3** | **Sí** | **Sí** (Abrir-KopiaDesk.cmd) | **No** |
 
-En Windows Home la app detecta que no puede cifrar (por `EditionID`) y muestra alternativas (ver [Alternativas sin BitLocker](#alternativas-sin-bitlocker)) en lugar del botón de cifrar. Desbloquear sí funciona en Home.
+Ninguna opción puede pedir la clave sola al conectar la USB en un PC ajeno: Windows no ejecuta el `autorun.inf` de las memorias USB desde Windows 7. Siempre hace falta un doble clic en el programa del disco.
 
-### Qué ve el usuario
+### En la app
 
-Al elegir el disco destino, la app consulta su estado **sin pedir permisos de administrador** y muestra un panel:
+El panel del disco destino muestra el estado y lo que se puede hacer:
 
 | Estado | Qué muestra | ¿Se puede copiar? |
 |---|---|---|
-| Sin cifrar | Aviso en rojo con **"Cifrar este disco"** y los campos de contraseña, para que siempre se vea dónde cifrar. Cifrarlo es opcional: **"Omitir por ahora"** lo pliega a una línea roja ("Disco sin cifrar" con **"Cifrar…"** para volver a abrirlo), y la app lo recuerda para ese disco | Sí |
-| Cifrando | Porcentaje y barra de progreso; aviso de no desconectar | Sí, más lento |
-| Cifrado y desbloqueado | **"Bloquear ahora"** y la casilla **"Bloquear el disco al terminar el backup"** (se recuerda) | Sí |
-| Cifrado y bloqueado | **"Desbloquear"** | No, hasta desbloquearlo |
-| Suspendido / a medio configurar | "Abrir panel de BitLocker" para resolverlo en Windows | Suspendido sí; a medio configurar pide confirmación |
-| Desconocido | Se informa | Sí |
-| **Disco del sistema** (o disco físico no identificado) | Solo una nota neutra: "Kopia Desk no ofrece cifrarlo ni bloquearlo". **Ninguna opción de cifrado**: ni botones ni la casilla de continuar sin cifrar | Sí, con aviso de que no es buen destino |
+| Sin backup y sin cifrar | Aviso en rojo con los dos campos de contraseña (mínimo 8 caracteres, indicador de fortaleza) y **Cifrar las copias**. **Omitir por ahora** lo pliega a una línea («Copias sin cifrar» con **Cifrar…**) y se recuerda para ese disco | Sí, sin cifrar |
+| Con copias sin cifrar | Explica que para cifrar hay que usar otro disco o uno vacío | Sí |
+| Cifrado y cerrado | Campo para la **contraseña o la clave de recuperación** y **Abrir** (también con Intro) | No, hasta abrirlo |
+| Cifrado y abierto | **Cerrar ahora**, **Cambiar contraseña…** y la casilla **Cerrar las copias cifradas al terminar el backup** | Sí |
 
-Nunca se ofrece cifrar ni bloquear el disco del sistema (ver [Protección del disco del sistema](#protección-del-disco-del-sistema-y-cambios-de-disco)).
+**Cifrar las copias:** se confirma en una ventana que explica qué pasa si se olvida la contraseña y, al terminar, se muestra la **clave de recuperación** (8 grupos de 4 caracteres, sin letras que se confundan como O/0 o I/1) **una sola vez**, con **Copiar**. La ventana no se cierra hasta marcar «Guardé la clave de recuperación en un lugar seguro, fuera de este disco».
 
-**Cifrar este disco:**
+La clave del disco abierto sólo vive en la memoria del proceso principal mientras la app está abierta, atada al número de serie del volumen: si en esa letra aparece otro disco, hay que volver a escribir la contraseña. La contraseña no se guarda en ningún sitio y los campos se vacían al usarla.
 
-1. La contraseña se escribe **en el propio panel del disco**, dos veces, con mínimo 8 caracteres (el mínimo de BitLocker) e indicador de fortaleza, que recomienda 12 o más. Un ojo en cada campo muestra u oculta lo escrito. "Cifrar este disco" no se habilita hasta que sea válida y coincida.
-2. La app explica los pasos y pregunta el alcance: **"Solo el espacio usado"** (rápido, recomendado para discos nuevos) o **"Disco completo"** (recomendado si el disco tuvo datos antes: cifra también lo borrado). Al continuar, los campos de contraseña se vacían.
-3. Windows pide permiso de administrador (UAC).
-4. Una ventana de Kopia Desk muestra la **clave de recuperación** de 48 dígitos. Hay que guardarla en un archivo (se rechaza guardarla en el disco que se va a cifrar) o copiarla, y confirmar que se guardó fuera del disco. Sin eso, "Cifrar ahora" no se habilita.
-5. Recién entonces se activa BitLocker (AES-256). La app muestra el progreso y, al terminar, confirma el estado real con BitLocker.
+### Sin la app (en otro PC)
 
-Si se cancela en cualquier paso, el disco no se modifica. Si la ventana del ayudante se cierra a la fuerza, la app lo detecta y lo informa. Si el disco se desconecta mientras se cifra, BitLocker continúa al reconectarlo.
+En la carpeta `KopiaDesk_Backup` del disco quedan `Abrir-KopiaDesk.cmd`, `Recuperar-KopiaDesk.ps1` y `LEEME-CIFRADO.txt`, de **solo lectura** (Windows avisa antes de borrarlos). Si aun así se borran, o son de una versión anterior, la app los repone sola cada vez que se elige o se vuelve a conectar el disco (sólo escribe los que faltan o cambiaron). Después del primer backup también está **Kopia Desk (portable).exe**. Con doble clic en **Abrir-KopiaDesk.cmd**, en cualquier Windows 10/11, también Home, sin instalar nada ni permisos de administrador:
 
-**Desbloquear** abre el cuadro de contraseña del propio Windows, sin permiso de administrador. Es el mismo cuadro que aparece al conectar el disco en cualquier otro equipo, así que se practica lo mismo que se hará fuera. **Bloquear** (manual o al terminar el backup) pide el permiso de administrador y confirma con BitLocker que el disco quedó bloqueado.
+1. Pide la contraseña o la clave de recuperación.
+2. Muestra las carpetas respaldadas en árbol, con los nombres reales.
+3. **Ver** abre un archivo con su programa habitual a partir de una copia descifrada temporal, que se borra al cerrar la ventana (si un programa aún la tiene abierta, se pide cerrarlo).
+4. **Sacar…** guarda lo elegido (un archivo, una carpeta o todo), descifrado y verificado, en la carpeta que se elija, con su fecha original. No reemplaza nada: si ya existe, guarda «nombre (2)». No deja guardar dentro del propio backup.
 
-**Expulsar** hace lo mismo que "Quitar hardware de forma segura" de Windows, sin permiso de administrador, para cualquier disco destino que no sea el del sistema (cifrado o no). Solo expulsa dispositivos que Windows marca como extraíbles, nunca una controladora interna. Si algún programa o ventana del Explorador está usando el disco, Windows lo impide y la app explica qué hacer.
+Al cerrar la ventana todo queda cifrado otra vez: en el disco nunca hay nada descifrado, así que no hace falta «bloquearlo»; basta con cerrar la ventana (o la app) y quitar el disco.
 
-### Cómo está hecho
+Desde la consola, para recuperar todo de una vez: `powershell -ExecutionPolicy Bypass -File Recuperar-KopiaDesk.ps1 -Accion Recuperar -Destino D:\Recuperado` (opcional `-Carpeta Fotos`).
 
-- **Estado sin elevación.** `Get-BitLockerVolume` exige administrador, así que se lee la propiedad de shell `System.Volume.BitLockerProtection` (vía `Shell.Application`). Mapeo: 1 = cifrado, 2 = sin cifrar, 3 = cifrando, 4 = descifrando, 5 = suspendido, 6 = bloqueado, 8 = esperando activación, 0 = no admite BitLocker. Proviene de documentación de la comunidad, no de Microsoft. **Verificados en Windows 11 Pro 26200 los valores 1, 2, 3 y 6.** Pendientes: 4, 5, 8 y Windows 10.
-- **Ayudante elevado** (`lib/bitlocker-helper.ps1`). La app no corre como administrador: para cifrar o bloquear lanza este script con `Start-Process -Verb RunAs`. Los argumentos solo llevan la acción, la letra de unidad (validada con `/^[A-Z]$/i`), la identidad del volumen y las rutas del archivo de estado y, al cifrar, del archivo de contraseña.
-- **La contraseña del panel hasta el ayudante.** El proceso principal la valida y la protege con **DPAPI** (`ConvertFrom-SecureString`, ligada al usuario de Windows): la recibe PowerShell por la entrada estándar en base64, para que tildes y eñes lleguen intactas. El resultado cifrado va a `<userData>\bitlocker\<letra>-Encrypt-<aleatorio>.pw`, con un nombre nuevo en cada intento. El ayudante lo lee al arrancar, **lo borra en el acto** y obtiene un `SecureString`. Solo acepta un `.pw` de la misma carpeta que su archivo de estado, y fuera de ahí no lee ni borra nada. Si el permiso de administrador lo da otra cuenta de Windows, DPAPI no puede abrirlo y el ayudante pide la contraseña en su propia ventana; la app avisa del motivo. El proceso principal también borra el `.pw` si el ayudante no llega a arrancar, a los 2 minutos como máximo, y al abrir o cerrar la app.
-- **Expulsar** (`lib/eject-drive.ps1`, sin elevar). Obtiene el número de disco del volumen (`IOCTL_STORAGE_GET_DEVICE_NUMBER`), busca ese disco entre los dispositivos de Windows y sube por sus padres hasta el primero marcado como extraíble (`CM_DEVCAP_REMOVABLE`); si no hay ninguno, no expulsa. Luego pide `CM_Request_Device_Eject` e informa el veto de Windows si lo hay. Se lanza como archivo: como `-EncodedCommand`, PowerShell tardaba unos 30 s preparando módulos. El ayudante informa su progreso escribiendo JSON en ese archivo (de forma atómica y sin secretos), y la app lo lee cada 1,5 s. En el instalador, el script se deja fuera del `.asar` (`asarUnpack`) para que PowerShell lo pueda leer.
-- **Orden de protectores.** La clave de recuperación se genera en el ayudante con un generador criptográfico, en el formato de BitLocker (8 grupos de 6 dígitos múltiplos de 11), **antes** de cifrar. Así se puede obligar a guardarla antes de empezar. Luego se activa BitLocker con esa clave (`Enable-BitLocker -RecoveryPasswordProtector -RecoveryPassword`) y se agrega la contraseña (`Add-BitLockerKeyProtector -PasswordProtector`). Si agregar la contraseña fallara, el disco sigue siendo abrible con la clave que el usuario ya guardó.
-- **Método de cifrado.** `Aes256`. Microsoft indica que para medios removibles que se vayan a leer en Windows 8.1 o Server 2012 R2 hay que usar AES (no XTS). No se usa `-HardwareEncryption` (Microsoft lo desaconseja, aviso ADV180028).
-- **Desbloqueo** con `bdeunlock.exe <letra>:`, el cuadro nativo de Windows. No necesita administrador y la contraseña de desbloqueo nunca pasa por la app.
+Si un PC de empresa bloquea PowerShell, el programa del disco no abre: ahí hay que usar Kopia Desk.
+
+### Formato (`lib/cifrado.js`, `lib/almacen.js`, `lib/Recuperar-KopiaDesk.ps1`)
+
+- **Algoritmos:** AES-256-CBC con PKCS7 + HMAC-SHA256 (cifrar y luego firmar) y PBKDF2-SHA256 con 600.000 vueltas para la contraseña (recomendación de OWASP). No son los más modernos (AES-GCM, Argon2), pero son los que trae el PowerShell 5.1 de cualquier Windows 10/11, y eso es lo que permite abrir el backup sin instalar nada.
+- **Claves:** una clave maestra al azar de 32 bytes, que nunca se guarda en claro. `cifrado.json` la guarda envuelta dos veces: con la contraseña y con la clave de recuperación (160 bits al azar). Cambiar la contraseña sólo vuelve a envolverla: no hay que recifrar nada y la clave de recuperación sigue sirviendo. De la maestra salen tres subclaves (cifrar, firmar y nombres).
+- **Archivo cifrado:** `KDC1` | IV (16) | datos cifrados | HMAC (32), por bloques de 4 MB. Antes de descifrar se comprueba la firma del archivo entero: un solo byte cambiado y se rechaza, sin entregar nada.
+- **Nombres opacos:** HMAC de la ruta lógica (`<carpeta>/<ruta dentro>`). La misma ruta da siempre el mismo nombre, así que la app y el script encuentran cada archivo sin guardar ninguna lista en claro.
+- **Velocidad:** en una USB Windows escribe sin caché ("extracción rápida"), y agrandar el archivo en cada bloque obliga a actualizar la tabla del disco una y otra vez. Por eso el archivo cifrado se reserva con su tamaño final, se escribe en bloques de 16 MB y, mientras un bloque se escribe, se lee y cifra el siguiente; la verificación lee el archivo una sola vez. Medido en una USB NTFS con archivos de 64 MB: la copia cifrada pasó de 1,4 MB/s a la velocidad de la copia normal. La estimación de tiempo guarda aparte la velocidad de las copias cifradas.
+- **Copia verificada igual que sin cifrar:** cifrado a un temporal, comprobación de que el origen no cambió, verificación descifrando lo escrito, y rename. Deduplicación con enlaces, versiones anteriores enlazadas (o copiadas en exFAT/FAT32) sin descifrar, restauración que compara el SHA-256 con el del manifiesto.
+- **FAT32:** el límite de 4 GB cuenta los 68 bytes que añade el cifrado.
 
 ### Protección del disco del sistema y cambios de disco
 
-Kopia Desk **nunca cifra ni bloquea el disco donde está instalado Windows**, ni ninguna de sus particiones (C:, la de arranque EFI, la de recuperación, u otra partición de ese mismo disco físico aunque tenga letra). Cifrar o bloquear cualquiera de ellas puede dejar el equipo sin arrancar.
+**Expulsar** nunca se ofrece para el disco donde está instalado Windows ni para un disco cuyo disco físico no se pudo averiguar, y antes de expulsar se relee la lista de discos para comprobar que la letra sigue siendo el mismo volumen (`checkDriveTarget`). Durante un backup, `driveIdentityChanged` detiene la copia si el USB se cambió por otro con la misma letra.
 
-- **Qué cuenta como disco del sistema:** el disco físico marcado por Windows como de arranque o de sistema (`Get-Disk` `IsBoot`/`IsSystem`) y el que contiene la unidad de Windows (`Win32_OperatingSystem.SystemDrive`, que no siempre es C:). No se decide por la letra.
-- **Ante la duda, no:** si no se puede averiguar en qué disco físico está un volumen, se trata como disco del sistema.
-- **La letra no alcanza.** Al elegir un disco, la app guarda su identidad de volumen (`\\?\Volume{GUID}\`). Antes de cifrar o bloquear se comprueba que la letra siga siendo **ese mismo volumen**: si el USB se cambió por otro que tomó la misma letra, se desconectó o cambió de letra, la operación se cancela sin tocar nada.
-- **Tres capas independientes:**
-  1. **La interfaz** no muestra los botones para el disco del sistema y explica por qué.
-  2. **El proceso principal** relee la lista de discos en el momento (no usa la de la pantalla) y comprueba identidad y disco del sistema.
-  3. **El ayudante elevado** repite ambas comprobaciones al arrancar y otra vez **justo antes** de `Enable-BitLocker` o `Lock-BitLocker`, porque entre medio el usuario pudo pasar minutos escribiendo la contraseña y cambiar el disco.
+### Unidades de VeraCrypt
 
-  La decisión del ayudante (`Test-KdTargetAllowed`) es una función pura que los tests ejecutan con los mismos escenarios que la de la app (`checkBitLockerTarget`), para garantizar que ambas coinciden.
-
-### Reglas de seguridad (cómo se cumplen)
-
-1. **La contraseña nunca va en la línea de comandos.** ✅ El ayudante recibe solo la ruta del archivo `.pw` (comprobado en la línea de comandos real del proceso elevado durante las pruebas).
-2. **La contraseña nunca se guarda en claro.** ✅ En la app solo vive en los campos del panel, que se vacían al empezar, y en memoria durante el envío. No se escribe en `settings.json` ni en los logs. En disco solo existe unos segundos, cifrada con DPAPI, y el ayudante la borra al leerla. En el ayudante es un `SecureString` que se descarta al terminar.
-3. **La clave de recuperación nunca se escribe en el disco que se cifra**, ni en `.kopia-data`. ✅ Se rechaza guardarla en ese disco; solo se escribe donde el usuario elige.
-4. **Elevación mínima.** ✅ Solo el ayudante corre elevado, y solo para cifrar o bloquear.
-5. **Validación de la letra de unidad** antes de interpolarla. ✅ En la app y en el `param()` del ayudante; las rutas con comillas dobles se rechazan.
-6. **Nunca el disco del sistema.** ✅ Ninguna partición del disco físico de Windows, comprobado en la interfaz, en el proceso principal y dos veces en el ayudante (ver sección anterior).
-7. **Confirmar el estado real** con `Get-BitLockerVolume` tras cada operación. ✅ Protectores tras cifrar, `LockStatus` tras bloquear.
-8. **Mensajes de error claros.** ✅ Para edición sin BitLocker, UAC rechazado, disco ya cifrado, ayudante cerrado, disco desconectado y protegido contra escritura.
-
-### Alternativas sin BitLocker
-
-Para Windows Home o para discos que se usarán en macOS/Linux:
-
-- **VeraCrypt** (externo, código abierto): la app puede detectar si está instalado y enlazar a una guía, pero no automatizarlo.
-- **Actualizar a Windows Pro.**
-- **Cifrado a nivel de archivo dentro de la app** (AES-256-GCM con clave derivada por scrypt o Argon2): descartado por ahora. Implica que sin la app no se puede leer el backup, y requiere manejar nonces, rotación y verificación de integridad con cuidado.
+Una unidad montada con VeraCrypt se reconoce como destino («cifrado con VeraCrypt»; sin Expulsar, se desmonta en VeraCrypt). Windows no lista esas unidades con `Get-Volume`, así que se buscan entre las que faltan y se aceptan sólo si su dispositivo es de VeraCrypt (`\Device\VeraCryptVolumeX`); su identidad es `veracrypt:` + el número de serie del volumen.
 
 ---
 
@@ -292,7 +290,6 @@ Verificado en la app: pedir el hash de `C:\Windows\win.ini`, escanear `C:\Window
 
 ## Limitaciones
 
-- **Sin cifrado propio del backup.** Depende de cifrar el disco (ver sección de cifrado).
 - **Sin archivos en uso.** Los bloqueos de milisegundos se superan con reintentos, pero un archivo que sigue abierto (Outlook, bases de datos activas) falla con un mensaje claro ("Archivo en uso por otro programa"), conserva en el backup su versión anterior y se reintenta en el próximo backup. No se usa Volume Shadow Copy.
 - **Sin programación.** Los backups son manuales.
 - **Sin interfaz para restaurar versiones anteriores.** Existen como `.gz` en una carpeta oculta.
@@ -300,7 +297,7 @@ Verificado en la app: pedir el hash de `C:\Windows\win.ini`, escanear `C:\Window
 - **Un solo destino por ejecución.** No cubre por sí sola la regla 3-2-1.
 - **Solo Windows.** Usa PowerShell, `attrib` y rutas de Windows.
 - **Sin auto-actualización.** Las correcciones de seguridad de Electron solo llegan reinstalando.
-- **Rapidez de la interfaz.** Las consultas a Windows (lista de discos, tipo de disco, estado de cifrado) usan un PowerShell que queda abierto: detectar discos pasó de ~1,7 s a ~0,25 s, y elegir un disco muestra su cifrado y su tipo en 0,03–0,16 s. Al abrir la app, la lista de discos está lista a los ~1,75 s. Al escanear, los SHA-256 de archivos con la fecha cambiada se calculan varios a la vez en discos SSD (medido: de 119 a 182 MB/s); en discos mecánicos, de a uno.
+- **Rapidez de la interfaz.** Las consultas a Windows (lista de discos, tipo de disco) usan un PowerShell que queda abierto: detectar discos pasó de ~1,7 s a ~0,25 s, y elegir un disco muestra su tipo en 0,03–0,16 s. Al abrir la app, la lista de discos está lista a los ~1,75 s. Al escanear, los SHA-256 de archivos con la fecha cambiada se calculan varios a la vez en discos SSD (medido: de 119 a 182 MB/s); en discos mecánicos, de a uno.
 - **Velocidad frente a Windows** (robocopy, con el mismo vaciado de caché al final), medida en dos USB reales (NTFS y exFAT) con 3 archivos de 256 MB y con 2.000 archivos de 4–64 KB:
 
   | | Archivos grandes | 2.000 pequeños |
@@ -327,7 +324,6 @@ Verificado en la app: pedir el hash de `C:\Windows\win.ini`, escanear `C:\Window
 - ✅ **exFAT y FAT32:** sin hardlinks (el dedup cae a copia normal, verificado en un USB exFAT) y sin journaling (se avisa al elegir el disco).
 - **Resolución de fecha en FAT:** 2 segundos. Puede generar falsos "cambiados" (ahora se resuelven por SHA-256 sin recopiar) o no detectar cambios rápidos (la verificación profunda los detecta).
 - **NTFS:** límite de 1023 hardlinks por archivo. El fallback a copia ya lo cubre.
-- **BitLocker To Go** funciona con NTFS, exFAT y FAT32 (verificar).
 - **Rutas mayores a 260 caracteres.**
 - **Nombres problemáticos:** Unicode, emojis, espacios o puntos al final, nombres reservados (`CON`, `NUL`, `COM1`).
 - **OneDrive "archivos a petición":** hashear o copiar un marcador fuerza la descarga desde la nube. En una carpeta Documentos sincronizada puede significar gigas descargados sin aviso. Detectar el atributo de marcador y advertir.
@@ -345,7 +341,7 @@ Verificado en la app: pedir el hash de `C:\Windows\win.ini`, escanear `C:\Window
 - **Conflictos:** en la restauración completa, un archivo existente en el destino se reemplaza (de forma atómica). Definir si sobrescribe, omite o pregunta.
 - ✅ **Verificación de hash** tras restaurar.
 - **Interfaz para versiones anteriores**, con lista por fecha y restauración a una carpeta elegida.
-- **Restauración sin la app** documentada para el usuario final.
+- ✅ **Restauración sin la app** de un backup cifrado: Abrir-KopiaDesk.cmd y `LEEME-CIFRADO.txt` en el propio disco.
 
 ### Retención y espacio
 
@@ -385,7 +381,7 @@ Verificado en la app: pedir el hash de `C:\Windows\win.ini`, escanear `C:\Window
 - **`npm audit`** antes de cada release. Hoy informa 6 vulnerabilidades altas (`@xmldom/xmldom`, `brace-expansion`, `fast-uri`, `js-yaml`, `tar`, `undici`), todas dentro de `electron-builder`: afectan a la máquina que compila el instalador, no a la app instalada, que no tiene dependencias en tiempo de ejecución. Actualizar `electron-builder` cuando haya versión corregida.
 - **Firma de código** del instalador NSIS, para evitar SmartScreen y garantizar integridad.
 - **Canal de actualización** definido (releases de GitHub firmados como mínimo).
-- **Privacidad de metadatos:** `sources.json` y logs contienen rutas completas con nombre de usuario. Quedan expuestos si el disco no está cifrado (la app lo advierte y permite cifrarlo).
+- **Privacidad de metadatos:** sin cifrar, `sources.json` y los logs contienen rutas completas con nombre de usuario. Con las copias cifradas van cifrados (la app lo advierte y permite cifrarlas).
 - **Ransomware:** un USB conectado siempre se cifra junto con el equipo. La app debería sugerir desconectarlo al terminar.
 
 ---
@@ -416,25 +412,17 @@ Además de los tests de `lib/core.js`. ✅ = automatizado en `npm test`; 🔌 = 
 - 100.000 archivos pequeños (tiempo y memoria del manifiesto JSON).
 - Archivos individuales de más de 10 GB.
 
-**Cifrado** (🔌 = en la app real, sobre discos virtuales exFAT y NTFS; ✅ = `test/bitlocker.test.js`)
-- 🔌 USB sin cifrar en Windows Pro: se advierte en rojo y aparece "Cifrar este disco"; se puede copiar sin cifrar (el cifrado es opcional).
-- 🔌 Flujo completo desde la app con la **contraseña escrita en el panel** (8 caracteres exactos y con eñe): corta o que no coincide no deja continuar; al confirmar los campos se vacían; no aparece la ventana de contraseña del ayudante; el `.pw` no queda en disco; el disco se desbloquea con esa contraseña; sin guardar la clave de recuperación no se cifra; al terminar el disco queda cifrado con AES-256 y protectores de contraseña y clave de recuperación.
-- 🔌 Bloquear, desbloquear (cuadro de Windows) y "Bloquear al terminar el backup".
-- 🔌 Desbloquear con la clave de recuperación generada.
-- 🔌 Cancelar en la ventana de contraseña: el disco no se modifica. Ayudante cerrado a la fuerza: la app lo detecta en segundos.
-- 🔌 Progreso real (disco de 4 GB con 2,5 GB de datos, cifrado completo) y estados 1, 2, 3 y 6 leídos sin elevación.
-- 🔌 **Disco del sistema:** cifrar o bloquear C: saltándose la interfaz (llamando directo a la app y ejecutando el ayudante a mano con la identidad real de C:) se rechaza en todos los casos, y C: queda sin tocar.
-- 🔌 **Cambios de disco** (con dos discos virtuales que se conectan, desconectan e intercambian): disco cambiado por otro con la misma letra después de elegirlo; cambiado **mientras la ventana de contraseña estaba abierta**; desconectado con la ventana abierta; cambio de letra después de elegirlo. En todos se cancela sin cifrar ningún disco. Control: sin cambios, el cifrado sigue funcionando.
-- ✅ `test/disco-sistema.test.js`: 9 escenarios (incluidos otra partición del disco del sistema con letra, disco físico desconocido y Windows instalado en otra letra) evaluados por la app **y** por el ayudante de PowerShell, que tienen que coincidir.
-- 🔌 Disco demasiado pequeño para BitLocker: el error de Windows llega claro a la app.
-- ✅ Validación de argumentos del ayudante: acción, letra y rutas (sin comillas dobles), escape de comillas simples.
-- 🔌 La contraseña no viaja en la línea de comandos: la del proceso elevado real solo lleva acción, letra, identidad del volumen y las rutas del archivo de estado y del `.pw`.
+**Cifrado** (✅ = `npm test`)
+- ✅ La caja se abre con la contraseña (con tildes, eñes y €) y con la clave de recuperación (también en minúsculas y sin guiones); otra contraseña u otra clave no. Cambiar la contraseña no cambia la clave de recuperación.
+- ✅ Archivos de 0 bytes a 9 MB (varios bloques) se cifran y descifran idénticos; un byte cambiado se rechaza sin dejar nada escrito.
+- ✅ PowerShell 5.1 descifra lo que cifró Node byte a byte y calcula los mismos nombres opacos.
+- ✅ Backup cifrado de punta a punta: en el disco no aparece ningún nombre de archivo o carpeta ni contenido en claro; deduplicación con enlaces; versión anterior intacta tras sobrescribir; restauración con fecha original; manifiesto dañado rescatado con su `.prev`.
+- ✅ **Sin la app** (`test/recuperar.test.js`, con el script copiado en el disco): recupera todo con nombres difíciles (tildes, apóstrofo, corchetes, &, %, emoji), rutas de más de 260 caracteres, un archivo de 9 MB y uno vacío, con sus fechas; con la clave de recuperación y desde la raíz del disco; sólo una carpeta; una contraseña equivocada no recupera nada; un archivo alterado o borrado se informa y los demás se recuperan; no pisa lo que ya existe.
+- ✅ Rendimiento del script con 50.000 archivos: abrir 0,1 s, leer el catálogo 0,6 s, nombres opacos 6 s.
+- ✅ FAT32: el límite de 4 GB cuenta lo que añade el cifrado.
+- Pendiente (con la app real, sobre una USB de pruebas y un disco virtual FAT32): cifrar desde el panel, backup, cerrar y abrir, cambiar la contraseña, restaurar; la ventana de Abrir-KopiaDesk.cmd (Ver, Sacar, Detener, cerrar con un archivo abierto) en este PC y en otro con Windows Home.
+- ✅ `test/disco-sistema.test.js`: 9 escenarios de disco del sistema y cambios de disco antes de expulsar.
 - 🔌 **Expulsar** con un USB real: con un archivo abierto en el USB, Windows lo impide y la app explica el motivo; sin nada abierto, se expulsa en menos de un segundo y la letra desaparece. Un disco virtual (no extraíble) no se expulsa.
-- ✅ `.pw` fuera de la carpeta de la app o con otra extensión: el ayudante no lo lee ni lo borra. `.pw` dañado: se pide la contraseña en la ventana y el archivo se borra igual.
-- 🔌 **Sin permisos de administrador** (proceso con token normal, como corre la app instalada): la lista de discos, la detección del disco del sistema, el ID de volumen, el estado de BitLocker y el tipo de disco funcionan; la app detecta bien si el ayudante elevado sigue vivo.
-- **Pendiente, requiere a una persona:** el aviso de UAC al cifrar o bloquear con la app sin elevación, y el caso de rechazarlo. El aviso aparece en el escritorio seguro de Windows y no se puede automatizar.
-- Windows Home: la opción de cifrar no aparece y se muestran alternativas.
-- Un USB real cifrado desde la app y desbloqueado en otro equipo sin Kopia Desk.
 
 ---
 
@@ -474,7 +462,7 @@ Ordenada por prioridad.
 ## Recomendaciones para quien usa la app
 
 - **Cifra el disco de backup.** Si el USB se pierde sin cifrar, cualquiera puede leerlo.
-- **Guarda la clave de recuperación de BitLocker fuera del USB**: impresa, en un gestor de contraseñas o en tu cuenta Microsoft. Sin contraseña ni clave de recuperación, los datos son irrecuperables.
+- **Si cifras las copias, guarda la clave de recuperación fuera del USB**: en papel o en un gestor de contraseñas. Sin contraseña ni clave de recuperación, los datos son irrecuperables.
 - **Desconecta el disco cuando termines.** Un disco conectado siempre queda expuesto a ransomware.
 - **Ten más de una copia.** Idealmente tres copias, en dos medios distintos, con una fuera de casa u oficina.
 - **Prueba restaurar** de vez en cuando. Un backup que nunca se restauró es una suposición.
@@ -489,7 +477,7 @@ Ordenada por prioridad.
 - Node.js (`fs`/`original-fs`, `crypto`, `zlib`, `child_process`)
 - HTML/CSS/JS sin frameworks
 - `node --test` para la suite de `lib/core.js`
-- PowerShell: módulo `Storage`; `Shell.Application` para leer el estado de BitLocker; módulo `BitLocker` y WinForms en el ayudante elevado `lib/bitlocker-helper.ps1`
+- PowerShell: módulo `Storage` para los discos; PowerShell 5.1 (.NET: AES, HMAC, PBKDF2 y WinForms) en `lib/Recuperar-KopiaDesk.ps1`, el programa que abre las copias cifradas sin la app
 
 ---
 

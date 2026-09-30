@@ -7,7 +7,7 @@
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'"
     />
-    <title>Kopia Desk v2</title>
+    <title>Kopia Desk v3</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
@@ -16,7 +16,7 @@
     <header class="titlebar" id="titlebar">
       <div class="tb-brand">
         <span class="logo-badge"><img src="../assets/Kopia_Desk_icon.png" alt="" /></span>
-        <span>Kopia Desk <small class="version-tag">V2</small></span>
+        <span>Kopia Desk <small class="version-tag">V3</small></span>
       </div>
       <div class="tb-controls">
         <button id="themeToggle" class="tb-btn theme-toggle" type="button" title="Cambiar tema" aria-label="Cambiar tema">
@@ -191,39 +191,6 @@
               <h1 class="page-title">Copias de seguridad</h1>
             </div>
 
-            <!-- Bienvenida: sólo mientras no hay carpetas. Los pasos se marcan
-                 solos (✔) al cumplirse; los dos primeros llevan a la acción. -->
-            <section id="welcomeCard" class="card welcome-card" hidden>
-              <div class="welcome-intro">
-                <span class="welcome-eyebrow">Bienvenido</span>
-                <h2 class="welcome-title">Tus archivos, resguardados.</h2>
-                <p>
-                  Elige qué carpetas proteger y a qué disco copiarlas. Verás exactamente qué se va a copiar, y por qué,
-                  antes de tocar un solo archivo.
-                </p>
-              </div>
-              <ol class="welcome-steps">
-                <li>
-                  <button id="welcomeStep1" class="welcome-step" type="button">
-                    <span class="welcome-num" aria-hidden="true">1</span>
-                    <span class="welcome-text"><strong>Elige carpetas</strong><small>Fotos, Documentos o cualquier otra</small></span>
-                  </button>
-                </li>
-                <li>
-                  <button id="welcomeStep2" class="welcome-step" type="button">
-                    <span class="welcome-num" aria-hidden="true">2</span>
-                    <span class="welcome-text"><strong>Elige el disco</strong><small>Una USB o un disco externo conectado</small></span>
-                  </button>
-                </li>
-                <li>
-                  <div id="welcomeStep3" class="welcome-step">
-                    <span class="welcome-num" aria-hidden="true">3</span>
-                    <span class="welcome-text"><strong>Revisa y confirma</strong><small>Verás todo antes de copiar nada</small></span>
-                  </div>
-                </li>
-              </ol>
-            </section>
-
             <div class="setup-grid">
               <!-- Columna izquierda: Origen y, debajo, el Resumen con los botones
                    (así no hay que bajar hasta el final para copiar). -->
@@ -395,11 +362,11 @@
                   </div>
                 </div>
 
-                <!-- Estado de cifrado del destino (BitLocker): cifrar, desbloquear,
-                     bloquear y expulsar desde aquí. La contraseña nueva se escribe
-                     aquí y llega al ayudante elevado protegida con DPAPI; la clave
-                     de recuperación la muestra el ayudante (lib/bitlocker-helper.ps1)
-                     y el desbloqueo usa el cuadro de Windows. -->
+                <!-- Cifrado de las copias (propio de Kopia Desk, v3): activarlo con
+                     una contraseña, abrir un backup cifrado, cerrarlo y cambiar la
+                     contraseña. Funciona en cualquier Windows y en cualquier disco
+                     (también FAT32 y exFAT); no cifra el disco entero, sólo las copias.
+                     Ver lib/cifrado.js y lib/almacen.js. -->
                 <div id="encryptionPanel" class="encryption-panel" hidden>
                   <div class="encryption-head">
                     <p id="encryptionStatus"></p>
@@ -407,7 +374,7 @@
                       id="encryptionRecheckBtn"
                       class="icon-btn icon-btn-sm"
                       type="button"
-                      title="Comprobar de nuevo el cifrado del disco"
+                      title="Comprobar de nuevo el cifrado de las copias"
                       aria-label="Comprobar de nuevo"
                     >
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -416,11 +383,8 @@
                       </svg>
                     </button>
                   </div>
-                  <div id="encryptionProgress" class="encryption-progress" hidden>
-                    <div id="encryptionProgressFill" class="encryption-progress-fill"></div>
-                  </div>
                   <div id="encryptPasswordBox" class="encrypt-password" hidden>
-                    <label for="encPassword1">Contraseña del disco <span class="encrypt-password-min">(mínimo 8 caracteres)</span></label>
+                    <label for="encPassword1">Contraseña de las copias <span class="encrypt-password-min">(mínimo 8 caracteres)</span></label>
                     <div class="password-field">
                       <input id="encPassword1" type="password" autocomplete="new-password" maxlength="256" spellcheck="false" />
                       <button class="pw-eye" type="button" data-target="encPassword1" title="Mostrar contraseña" aria-label="Mostrar contraseña" aria-pressed="false">
@@ -438,30 +402,41 @@
                     </div>
                     <p id="encPasswordStrength" class="encrypt-strength" aria-live="polite"></p>
                     <p class="encrypt-password-hint">
-                      Windows la pedirá cada vez que conectes el disco, en este o en otro equipo. Si la olvidas, solo
-                      la clave de recuperación lo abre.
+                      Kopia Desk la pedirá cada vez que abras este disco para copiar o restaurar. Si la olvidas, solo
+                      la clave de recuperación abre las copias.
                     </p>
                   </div>
+                  <div id="unlockBox" class="encrypt-password" hidden>
+                    <label for="unlockPassword">Contraseña o clave de recuperación</label>
+                    <div class="password-field">
+                      <input id="unlockPassword" type="password" autocomplete="current-password" maxlength="256" spellcheck="false" />
+                      <button class="pw-eye" type="button" data-target="unlockPassword" title="Mostrar contraseña" aria-label="Mostrar contraseña" aria-pressed="false">
+                        <svg class="pw-eye-show" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+                        <svg class="pw-eye-hide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"></path><path d="M10.6 5.1A10.8 10.8 0 0 1 12 5c6.4 0 10 7 10 7a17.6 17.6 0 0 1-3.2 4.1"></path><path d="M6.6 6.6C3.8 8.4 2 12 2 12s3.6 7 10 7a10 10 0 0 0 5.4-1.6"></path><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"></path></svg>
+                      </button>
+                    </div>
+                    <p id="unlockError" class="encrypt-strength" data-level="bad" aria-live="polite"></p>
+                  </div>
                   <div class="notice-actions">
-                    <button id="encryptBtn" class="primary" type="button" hidden>Cifrar este disco</button>
+                    <button id="encryptBtn" class="primary" type="button" hidden>Cifrar las copias</button>
                     <button
                       id="skipEncryptBtn"
                       class="ghost"
                       type="button"
-                      title="Pliega este aviso para este disco. Puedes cifrarlo más adelante con «Cifrar…»."
+                      title="Pliega este aviso para este disco. Puedes cifrar más adelante con «Cifrar…»."
                       hidden
                     >
                       Omitir por ahora
                     </button>
                     <button id="showEncryptBtn" class="ghost" type="button" hidden>Cifrar…</button>
-                    <button id="unlockBtn" class="primary" type="button" hidden>Desbloquear</button>
-                    <button id="lockBtn" class="ghost" type="button" hidden>Bloquear ahora</button>
+                    <button id="unlockBtn" class="primary" type="button" hidden>Abrir</button>
+                    <button id="lockBtn" class="ghost" type="button" hidden>Cerrar ahora</button>
+                    <button id="changePasswordBtn" class="ghost" type="button" hidden>Cambiar contraseña…</button>
                     <button id="ejectBtn" class="ghost" type="button" hidden>Expulsar</button>
-                    <button id="encryptionOpenBtn" class="ghost" type="button" hidden>Abrir panel de BitLocker</button>
                   </div>
                   <label id="lockAfterLabel" class="warning-ack" hidden>
                     <input id="lockAfterToggle" type="checkbox" />
-                    Bloquear el disco al terminar el backup
+                    Cerrar las copias cifradas al terminar el backup
                   </label>
                 </div>
 
@@ -533,6 +508,13 @@
                     <option value="quit">Cerrar la app</option>
                   </select>
                 </label>
+                <div class="option-row option-select">
+                  <div>
+                    <div class="option-title">Tutorial</div>
+                    <div class="option-desc">Recorre cada parte de la app, paso a paso.</div>
+                  </div>
+                  <button id="tutorialBtn" type="button">Ver el tutorial</button>
+                </div>
               </div>
 
             </section>
@@ -595,7 +577,7 @@
               </p>
             </div>
             <section class="card restore-preview-block">
-              <span class="section-label">Elegí qué restaurar</span>
+              <span class="section-label">Elige qué restaurar</span>
               <div id="restoreFullList" class="list empty">Selecciona un disco con backup.</div>
             </section>
           </div>
@@ -603,37 +585,72 @@
       </div>
     </div>
 
-    <!-- Confirmación antes de cifrar: explica los pasos y el alcance. -->
+    <!-- Confirmación antes de cifrar: qué se cifra y qué pasa si se olvida la contraseña. -->
     <dialog id="encryptDialog" class="kd-dialog" aria-labelledby="encryptDialogTitle">
-      <h2 id="encryptDialogTitle">Cifrar el disco <span id="encryptDialogDrive"></span></h2>
+      <h2 id="encryptDialogTitle">Cifrar las copias en <span id="encryptDialogDrive"></span></h2>
       <p>
-        Kopia Desk usa BitLocker, el cifrado de Windows, con la contraseña que escribiste. Cuando termine, el disco
-        pedirá esa contraseña cada vez que lo conectes, en este o en otro equipo con Windows. Tus archivos siguen
-        siendo archivos normales.
+        Desde ahora, todo lo que Kopia Desk copie en este disco se guardará cifrado (AES-256) con la contraseña que
+        escribiste: el contenido de los archivos y también sus nombres y carpetas. Sin la contraseña, nadie puede ver
+        qué hay en el backup.
       </p>
       <ol class="kd-steps">
-        <li>Windows te pedirá permiso de administrador.</li>
-        <li>
-          En una ventana de Kopia Desk guardas la clave de recuperación <strong>fuera de este disco</strong>. Sin
-          guardarla no se continúa.
-        </li>
-        <li>El cifrado sigue en segundo plano: puedes usar el disco mientras tanto, aunque irá más lento.</li>
+        <li>Kopia Desk te mostrará una <strong>clave de recuperación</strong>. Guárdala <strong>fuera de este disco</strong>
+          (en papel o en otro equipo): es la única forma de abrir las copias si olvidas la contraseña.</li>
+        <li>Cada vez que elijas este disco, Kopia Desk te pedirá la contraseña para copiar o restaurar.</li>
+        <li>En el disco quedará <strong>Recuperar-KopiaDesk.ps1</strong>: con él recuperas los archivos en cualquier
+          Windows aunque no tengas Kopia Desk.</li>
       </ol>
-      <fieldset class="kd-scope">
-        <legend>Qué cifrar</legend>
-        <label>
-          <input type="radio" name="encryptScope" value="used" checked />
-          <span><strong>Solo el espacio usado</strong> — rápido. Recomendado para discos nuevos o vacíos.</span>
-        </label>
-        <label>
-          <input type="radio" name="encryptScope" value="full" />
-          <span><strong>Disco completo</strong> — más lento. Recomendado si el disco tuvo datos antes: cifra también lo borrado.</span>
-        </label>
-      </fieldset>
-      <p class="hint">No desconectes el disco mientras se cifra. Si se desconecta, el cifrado continúa al volver a conectarlo.</p>
+      <p class="kd-warning">
+        Si pierdes la contraseña y la clave de recuperación, las copias no se pueden recuperar de ninguna forma.
+      </p>
       <div class="kd-dialog-actions">
         <button id="encryptDialogCancel" class="ghost" type="button">Cancelar</button>
-        <button id="encryptDialogConfirm" class="primary" type="button">Continuar</button>
+        <button id="encryptDialogConfirm" class="primary" type="button">Cifrar</button>
+      </div>
+    </dialog>
+
+    <!-- La clave de recuperación se muestra una sola vez: no se cierra sin confirmar que se guardó. -->
+    <dialog id="recoveryDialog" class="kd-dialog" aria-labelledby="recoveryDialogTitle">
+      <h2 id="recoveryDialogTitle">Guarda tu clave de recuperación</h2>
+      <p>
+        Las copias en <strong id="recoveryDialogDrive"></strong> ya están cifradas. Si olvidas la contraseña, esta clave
+        es lo único que las abre. <strong>No se volverá a mostrar.</strong>
+      </p>
+      <p id="recoveryKeyText" class="recovery-key" tabindex="0"></p>
+      <div class="kd-dialog-actions recovery-actions">
+        <button id="recoveryCopyBtn" class="ghost" type="button">Copiar</button>
+      </div>
+      <p class="hint">
+        Anótala en papel o guárdala en otro equipo o en tu gestor de contraseñas. No la guardes en este mismo disco.
+      </p>
+      <label class="warning-ack">
+        <input id="recoverySavedToggle" type="checkbox" />
+        Guardé la clave de recuperación en un lugar seguro, fuera de este disco
+      </label>
+      <div class="kd-dialog-actions">
+        <button id="recoveryDoneBtn" class="primary" type="button" disabled>Listo</button>
+      </div>
+    </dialog>
+
+    <dialog id="changePasswordDialog" class="kd-dialog" aria-labelledby="changePasswordDialogTitle">
+      <h2 id="changePasswordDialogTitle">Cambiar la contraseña de las copias</h2>
+      <p>
+        La contraseña nueva abre las mismas copias; la anterior deja de servir. La clave de recuperación no cambia.
+      </p>
+      <div class="encrypt-password">
+        <label for="chgPassword1">Contraseña nueva <span class="encrypt-password-min">(mínimo 8 caracteres)</span></label>
+        <div class="password-field">
+          <input id="chgPassword1" type="password" autocomplete="new-password" maxlength="256" spellcheck="false" />
+        </div>
+        <label for="chgPassword2">Repite la contraseña nueva</label>
+        <div class="password-field">
+          <input id="chgPassword2" type="password" autocomplete="new-password" maxlength="256" spellcheck="false" />
+        </div>
+        <p id="chgPasswordStrength" class="encrypt-strength" aria-live="polite"></p>
+      </div>
+      <div class="kd-dialog-actions">
+        <button id="changePasswordCancel" class="ghost" type="button">Cancelar</button>
+        <button id="changePasswordConfirm" class="primary" type="button" disabled>Cambiar</button>
       </div>
     </dialog>
 
@@ -664,6 +681,8 @@
     </template>
 
     <script src="compare.js"></script>
+    <script src="restore-tree.js"></script>
+    <script src="tutorial.js"></script>
     <script src="app.js"></script>
   </body>
 </html>

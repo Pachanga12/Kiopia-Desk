@@ -24,7 +24,6 @@ const {
   checkJournals,
   TMP_SUFFIX,
   detectDriveType,
-  getEncryptionStatus,
 } = require("../lib/core.js");
 
 function makeTempDir() {
@@ -381,16 +380,11 @@ test("pickConcurrency: disco desconocido usa valores intermedios", () => {
 });
 
 // --- Inyección en argumentos de PowerShell (auditoría, sección 5/8) --------------
-// detectDriveType() y getEncryptionStatus() arman el script de PowerShell con
-// un template string que interpola la letra de unidad directo (sin psQuote,
-// a diferencia de buildHelperLaunchScript). Son seguros igual, por dos motivos
-// distintos:
-//   - detectDriveType: la letra sale de `/^([A-Za-z])/.exec(driveRoot)` (sólo
-//     ancla el INICIO): la captura es siempre un único carácter alfabético,
-//     así que el resto de un driveRoot manipulado se descarta sin más.
-//   - getEncryptionStatus: la regex ancla inicio Y fin
-//     (`/^([A-Za-z]):?[\\/]?$/`), así que cualquier texto extra hace fallar el
-//     match completo y el script ni se arma (retorno anticipado).
+// detectDriveType() arma el script de PowerShell con un template string que
+// interpola la letra de unidad directo. Es seguro igual: la letra sale de
+// `/^([A-Za-z])/.exec(driveRoot)` (sólo ancla el INICIO), así que la captura es
+// siempre un único carácter alfabético y el resto de un driveRoot manipulado
+// se descarta sin más.
 // Estos tests lo demuestran de verdad (no sólo leyendo la regex): un intento
 // real de inyección no crea el archivo que intenta crear.
 
@@ -413,13 +407,3 @@ test("detectDriveType: driveRoot que no empieza con una letra no ejecuta ningún
   assert.ok(!fs.existsSync(marker));
 });
 
-test(
-  "getEncryptionStatus: un driveRoot con intento de inyección de PowerShell no ejecuta nada extra",
-  soloWindows,
-  async () => {
-    const marker = path.join(os.tmpdir(), "kopia-injection-marker-enc-" + Date.now() + ".txt");
-    const malicious = `C'); New-Item -Path '${marker.replace(/'/g, "''")}' -ItemType File -Force | Out-Null; ('`;
-    await getEncryptionStatus(malicious);
-    assert.ok(!fs.existsSync(marker), "el intento de inyección no debe haber creado el archivo marcador");
-  }
-);

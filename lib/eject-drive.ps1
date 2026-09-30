@@ -1,4 +1,4 @@
-﻿# Kopia Desk v2 - expulsar un disco ("Quitar hardware de forma segura").
+﻿# Kopia Desk v3 - expulsar un disco ("Quitar hardware de forma segura").
 #
 # Lo lanza la app SIN elevar. Busca el dispositivo del disco de la letra dada y
 # pide a Windows que lo expulse (CM_Request_Device_Eject). Sólo expulsa un

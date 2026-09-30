@@ -1,7 +1,7 @@
 {
   "name": "kopia-desk",
-  "version": "2.4.0",
-  "description": "Kopia Desk v2: copias de seguridad incrementales para Windows, con copia verificada y cifrado BitLocker del disco destino",
+  "version": "3.0.0",
+  "description": "Kopia Desk v3: copias de seguridad incrementales para Windows, con copia verificada y copias cifradas con contraseña",
   "homepage": "https://github.com/Pachanga12/Kopia-Desk#readme",
   "repository": {
     "type": "git",
@@ -14,8 +14,8 @@
   "scripts": {
     "start": "electron .",
     "test": "node --test",
-    "lint": "node --check main.js && node --check preload.js && node --check lib/core.js && node --check renderer/compare.js && node --check renderer/app.js",
-    "build": "electron-builder --win"
+    "lint": "node --check main.js && node --check preload.js && node --check lib/core.js && node --check lib/cifrado.js && node --check lib/almacen.js && node --check renderer/compare.js && node --check renderer/restore-tree.js && node --check renderer/tutorial.js && node --check renderer/app.js",
+    "build": "node scripts/build.js"
   },
   "author": "Pachanga12",
   "license": "MIT",
@@ -25,14 +25,14 @@
   },
   "build": {
     "appId": "com.kopiadesk.app",
-    "productName": "Kopia Desk v2",
+    "productName": "Kopia Desk v3",
     "win": {
       "target": "nsis",
       "icon": "assets/Kopia_Desk_icon.png"
     },
     "asarUnpack": [
-      "lib/bitlocker-helper.ps1",
-      "lib/eject-drive.ps1"
+      "lib/eject-drive.ps1",
+      "lib/Recuperar-KopiaDesk.ps1"
     ],
     "files": [
       "main.js",
@@ -53,8 +53,8 @@
       "include": "build/installer.nsh",
       "createDesktopShortcut": false,
       "createStartMenuShortcut": true,
-      "shortcutName": "Kopia Desk v2",
-      "uninstallDisplayName": "Kopia Desk v2",
+      "shortcutName": "Kopia Desk v3",
+      "uninstallDisplayName": "Kopia Desk v3",
       "deleteAppDataOnUninstall": false,
       "installerSidebar": "build/installerSidebar.bmp",
       "uninstallerSidebar": "build/installerSidebar.bmp"

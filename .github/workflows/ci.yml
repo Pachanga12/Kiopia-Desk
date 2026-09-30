@@ -28,9 +28,9 @@ jobs:
           node-version: ${{ matrix.node-version }}
           cache: npm
 
-      # Los tests sólo ejercitan lib/core.js y la lógica de decisión del ayudante
-      # de BitLocker (PowerShell, sin elevación, sólo en Windows), así que se
-      # salta la descarga del binario de Electron (--ignore-scripts).
+      # Los tests sólo ejercitan lib/ (y, en Windows, el script de PowerShell
+      # que abre las copias cifradas sin la app), así que se salta la descarga
+      # del binario de Electron (--ignore-scripts).
       - name: Install dependencies
         run: npm ci --ignore-scripts
 

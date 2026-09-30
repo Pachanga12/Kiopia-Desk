@@ -28,18 +28,9 @@ const {
   listDrives,
   stopPowerShellWorker,
   fileSystemInfo,
-  getEncryptionStatus,
-  openBitLockerPanel,
-  bitlockerHelperPath,
-  launchBitLockerHelper,
-  checkBitLockerTarget,
+  checkDriveTarget,
   driveIdentityChanged,
-  isProtectedSystemVolume,
-  readHelperStatus,
-  isProcessAlive,
-  unlockWithWindowsPrompt,
   validateNewPassword,
-  protectPasswordForHelper,
   ejectScriptPath,
   ejectDrive,
   detectDriveType,
@@ -53,7 +44,10 @@ const {
   finishJournal,
   peekJournals,
   checkJournals,
+  restoreEncryptedVerified,
+  preserveEncryptedVersion,
 } = require("./lib/core.js");
+const almacen = require("./lib/almacen.js");
 
 const METADATA_DIR = ".kopia-data";
 const BACKUP_CONCURRENCY = 3;
@@ -119,7 +113,7 @@ function createWindow() {
     minWidth: Math.min(960, width),
     minHeight: Math.min(600, height),
     center: true,
-    title: "Kopia Desk v2",
+    title: "Kopia Desk v3",
     icon: path.join(__dirname, "assets", "Kopia_Desk_icon.png"),
     // Fondo mientras carga la interfaz: el del tema de Windows (colores --bg de
     // styles.css), para que no haya un destello blanco en modo oscuro ni
@@ -191,7 +185,7 @@ function ensureTray() {
   if (tray) return tray;
   const icon = nativeImage.createFromPath(path.join(__dirname, "assets", "Kopia_Desk_icon.png")).resize({ width: 16, height: 16 });
   tray = new Tray(icon);
-  tray.setToolTip("Kopia Desk v2");
+  tray.setToolTip("Kopia Desk v3");
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: "Abrir Kopia Desk", click: showMainWindow },
@@ -273,7 +267,7 @@ async function onWindowClose(event) {
 ipcMain.handle("app:busy", (_event, busy) => {
   rendererBusy = !!busy;
   if (!rendererBusy) cancelAllCopies = false;
-  if (tray) tray.setToolTip(rendererBusy ? "Kopia Desk v2 — trabajando…" : "Kopia Desk v2");
+  if (tray) tray.setToolTip(rendererBusy ? "Kopia Desk v3 — trabajando…" : "Kopia Desk v3");
 });
 
 // Aviso de Windows (sólo si la ventana no está a la vista): p. ej. copia terminada.
@@ -366,6 +360,17 @@ function watchDriveChanges(win) {
 // Instancia única: dos Kopia Desk abiertas a la vez escribirían sobre los
 // mismos manifiestos, índice y configuración y podrían pisarse. Si ya hay una,
 // esta se cierra y se trae al frente la ventana existente.
+// Hasta la v2 el ayudante de BitLocker dejaba en los datos de la app archivos
+// de estado (y, un momento, la contraseña protegida con DPAPI). La v3 ya no usa
+// BitLocker: se borra esa carpeta al arrancar.
+function removeOldBitLockerFiles() {
+  try {
+    fs.rmSync(path.join(app.getPath("userData"), "bitlocker"), { recursive: true, force: true });
+  } catch {
+    // se reintenta al próximo arranque
+  }
+}
+
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
@@ -375,7 +380,7 @@ if (!app.requestSingleInstanceLock()) {
     // El PowerShell de consultas arranca y hace la primera lista de discos
     // mientras se abre la ventana (antes la interfaz esperaba ~2 s por ella).
     startupDrives = refreshDrives();
-    removeStalePasswordFiles();
+    removeOldBitLockerFiles();
     createWindow();
   });
   // Salir por otra vía (p. ej. el sistema): no volver a preguntar.
@@ -383,7 +388,6 @@ if (!app.requestSingleInstanceLock()) {
     quitting = true;
   });
   app.on("will-quit", () => {
-    removeStalePasswordFiles();
     stopPowerShellWorker();
   });
 }
@@ -650,6 +654,106 @@ function metadataDir(destRoot) {
   return path.join(destRoot, BACKUP_ROOT, METADATA_DIR);
 }
 
+// --- Backup cifrado (v3) ----------------------------------------------------
+// La clave maestra de cada disco abierto vive sólo en memoria, mientras la app
+// esté abierta, y va atada al número de serie del volumen: si en esa letra
+// aparece otro disco, hay que volver a escribir la contraseña. Todo lo demás
+// (nombres opacos, manifiestos e índices cifrados) está en lib/almacen.js.
+
+const unlockedKeys = new Map(); // destKey -> { masterKey, serial }
+
+function cryptoLockedError(destKey) {
+  const err = new Error("El backup de " + destKey + " está cifrado: hay que escribir la contraseña para abrirlo (CRYPTO_LOCKED).");
+  err.code = "CRYPTO_LOCKED";
+  return err;
+}
+
+// null = backup sin cifrar; la clave si está abierto; error si está cerrado.
+async function destCryptoKey(destKey) {
+  if (!almacen.isEncrypted(destKey)) return null;
+  const entry = unlockedKeys.get(destKey);
+  if (entry) {
+    const serial = await volumeSerial(destKey);
+    if (serial !== null && serial === entry.serial) return entry.masterKey;
+    unlockedKeys.delete(destKey);
+  }
+  throw cryptoLockedError(destKey);
+}
+
+async function rememberKey(destKey, masterKey) {
+  unlockedKeys.set(destKey, { masterKey, serial: await volumeSerial(destKey) });
+}
+
+function recoveryScriptSource() {
+  return path.join(__dirname, "lib", almacen.SCRIPT_NAME).replace(/app\.asar([\\/])/, "app.asar.unpacked$1");
+}
+
+ipcMain.handle("crypto:status", async (_event, destRoot) => {
+  const key = await assertDestRoot(destRoot);
+  const encrypted = almacen.isEncrypted(key);
+  // Cada vez que se elige (o vuelve) el disco: si Abrir-KopiaDesk.cmd o el
+  // script se borraron sin querer, o son de una versión vieja, se reponen.
+  if (encrypted) {
+    try {
+      almacen.writeRecoveryTools(key, recoveryScriptSource());
+    } catch {
+      // disco de sólo lectura, etc.: no impide usarlo
+    }
+  }
+  let unlocked = false;
+  if (encrypted) unlocked = await destCryptoKey(key).then(() => true, () => false);
+  return { encrypted, unlocked, plainBackup: !encrypted && almacen.hasPlainBackup(key) };
+});
+
+ipcMain.handle("crypto:enable", async (_event, destRoot, password) => {
+  const key = await assertDestRoot(destRoot);
+  const check = validateNewPassword(password);
+  if (!check.ok) return { ok: false, error: check.error };
+  try {
+    const { masterKey, recoveryKey } = almacen.enableEncryption(key, password, { scriptSource: recoveryScriptSource() });
+    await rememberKey(key, masterKey);
+    await hideFolder(metadataDir(key));
+    return { ok: true, recoveryKey };
+  } catch (err) {
+    return { ok: false, error: err.message, code: err.code };
+  }
+});
+
+ipcMain.handle("crypto:unlock", async (_event, destRoot, secret) => {
+  const key = await assertDestRoot(destRoot);
+  let masterKey;
+  try {
+    masterKey = almacen.unlock(key, secret);
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+  if (!masterKey) return { ok: false, error: "La contraseña o la clave de recuperación no es correcta." };
+  await rememberKey(key, masterKey);
+  // El script de recuperación del disco se pone al día con el de esta versión.
+  try {
+    almacen.writeRecoveryTools(key, recoveryScriptSource());
+  } catch {
+    // disco de sólo lectura, etc.: no impide abrirlo
+  }
+  return { ok: true };
+});
+
+ipcMain.handle("crypto:lock", async (_event, destRoot) => {
+  const key = await assertDestRoot(destRoot);
+  unlockedKeys.delete(key);
+  return { ok: true };
+});
+
+ipcMain.handle("crypto:change-password", async (_event, destRoot, newPassword) => {
+  const key = await assertDestRoot(destRoot);
+  const masterKey = await destCryptoKey(key);
+  if (!masterKey) return { ok: false, error: "Este disco no tiene un backup cifrado." };
+  const check = validateNewPassword(newPassword);
+  if (!check.ok) return { ok: false, error: check.error };
+  almacen.changePassword(key, masterKey, newPassword);
+  return { ok: true };
+});
+
 function manifestDir(destRoot) {
   return path.join(metadataDir(destRoot), "manifests");
 }
@@ -665,9 +769,15 @@ function prevManifestPath(fp) {
 // Devuelve { manifest, warning }. Si el manifiesto está dañado se usa el
 // .prev.json (y se avisa); si tampoco se puede, se avisa en vez de tratar todo
 // en silencio como nuevo.
-function loadManifestWithFallback(destRoot, sourceName) {
-  const fp = manifestFilePath(destRoot, sourceName);
-  const result = readJsonWithFallback(fp, prevManifestPath(fp));
+function loadManifestWithFallback(destRoot, sourceName, masterKey = null) {
+  let result;
+  if (masterKey) {
+    const r = almacen.loadManifest(destRoot, masterKey, sourceName);
+    result = { data: r.manifest, source: r.source };
+  } else {
+    const fp = manifestFilePath(destRoot, sourceName);
+    result = readJsonWithFallback(fp, prevManifestPath(fp));
+  }
   let warning = null;
   if (result.source === "fallback") {
     warning =
@@ -683,13 +793,19 @@ function loadManifestWithFallback(destRoot, sourceName) {
 
 ipcMain.handle("manifest:load", async (_event, destRoot, sourceName) => {
   const key = await assertDestRoot(destRoot);
-  return loadManifestWithFallback(key, sourceName);
+  return loadManifestWithFallback(key, sourceName, await destCryptoKey(key));
 });
 
 ipcMain.handle("manifest:save", async (_event, destRoot, sourceName, manifest) => {
   const key = await assertDestRoot(destRoot);
   if (typeof manifest !== "object" || manifest === null || Array.isArray(manifest)) {
     throw new Error("Manifiesto con formato inválido.");
+  }
+  const masterKey = await destCryptoKey(key);
+  if (masterKey) {
+    almacen.saveManifest(key, masterKey, sourceName, manifest);
+    await hideFolder(metadataDir(key));
+    return { ok: true };
   }
   const fp = manifestFilePath(key, sourceName);
 
@@ -716,6 +832,13 @@ ipcMain.handle("sources:remember", async (_event, destRoot, sourceName, sourcePa
   if (!insideAny(allowed.sources, sourcePath) && !insideAny(allowed.comparePaths, sourcePath)) {
     throw new Error("Ruta de origen no autorizada: " + sourcePath);
   }
+  const masterKey = await destCryptoKey(key);
+  if (masterKey) {
+    const map = almacen.loadSources(key, masterKey).data;
+    map[sourceName] = sourcePath;
+    almacen.saveSources(key, masterKey, map);
+    return { ok: true };
+  }
   const fp = sourcesMapPath(key);
   const map = readJsonWithFallback(fp, null).data;
   map[sourceName] = sourcePath;
@@ -725,7 +848,8 @@ ipcMain.handle("sources:remember", async (_event, destRoot, sourceName, sourcePa
 
 ipcMain.handle("sources:known-paths", async (_event, destRoot) => {
   const key = await assertDestRoot(destRoot);
-  const loaded = readJsonWithFallback(sourcesMapPath(key), null);
+  const masterKey = await destCryptoKey(key);
+  const loaded = masterKey ? almacen.loadSources(key, masterKey) : readJsonWithFallback(sourcesMapPath(key), null);
   const map = loaded.data;
   // Vienen del disco de backup, no de una elección del usuario: se permiten
   // sólo para listar nombres/tamaños en Comparar, no para leer contenido.
@@ -745,11 +869,13 @@ function contentIndexPath(destRoot) {
   return path.join(metadataDir(destRoot), "content-index.json");
 }
 
-function loadContentIndex(destRoot) {
+function loadContentIndex(destRoot, masterKey = null) {
+  if (masterKey) return new ContentIndex(almacen.loadIndexData(destRoot, masterKey));
   return new ContentIndex(readJsonWithFallback(contentIndexPath(destRoot), null).data);
 }
 
-function saveContentIndex(destRoot, index) {
+function saveContentIndex(destRoot, index, masterKey = null) {
+  if (masterKey) return almacen.saveIndexData(destRoot, masterKey, index);
   atomicWriteFileSync(contentIndexPath(destRoot), JSON.stringify(index, null, 2));
 }
 
@@ -810,157 +936,6 @@ ipcMain.handle("backup:plan-concurrency", async (_event, driveRoot, avgFileSize)
   return { root: driveRoot, concurrency: pickConcurrency(driveInfo, avgFileSize), driveInfo };
 });
 
-// --- Cifrado del disco destino (fase 1: detectar y abrir el panel nativo) ---
-
-ipcMain.handle("encryption:status", async (_event, driveRoot) => {
-  const key = await assertDestRoot(driveRoot);
-  const drive = lastDrives.find((d) => driveKey(d.root) === key);
-  const status = await getEncryptionStatus(key);
-  // Nunca se ofrece cifrar ni bloquear nada del disco del sistema (ni un
-  // volumen cuyo disco no se pudo averiguar). Es sólo para la interfaz: la
-  // comprobación que manda se repite al cifrar o bloquear.
-  status.systemProtected = isProtectedSystemVolume(drive);
-  if (status.systemProtected) status.canEncrypt = false;
-  return status;
-});
-
-ipcMain.handle("encryption:open-panel", async () => {
-  await openBitLockerPanel();
-  return { ok: true };
-});
-
-// --- Cifrado del disco destino (fases 2 y 3: cifrar, bloquear, desbloquear) ---
-
-const BITLOCKER_HELPER = bitlockerHelperPath(path.join(__dirname, "lib"));
-
-function helperStatusPath(letter, action) {
-  return path.join(app.getPath("userData"), "bitlocker", `${letter}-${action}.json`);
-}
-
-// Contraseña elegida en la app, protegida con DPAPI, para el ayudante. Va en la
-// misma carpeta que el archivo de estado (el ayudante sólo acepta esa carpeta).
-// El ayudante la borra al leerla; por si no llega a leerla (UAC rechazado,
-// ayudante que no arranca) también se borra aquí.
-// Un nombre por intento: el temporizador de limpieza de un intento anterior
-// nunca puede borrar el archivo de un reintento sobre el mismo disco.
-function helperPasswordPath(letter) {
-  const unique = require("crypto").randomBytes(6).toString("hex");
-  return path.join(app.getPath("userData"), "bitlocker", `${letter}-Encrypt-${unique}.pw`);
-}
-
-const PASSWORD_FILE_MAX_AGE_MS = 2 * 60 * 1000;
-
-function removePasswordFile(file) {
-  try {
-    fs.rmSync(file, { force: true });
-  } catch {
-    // se reintenta en la siguiente limpieza
-  }
-}
-
-// Al arrancar y al salir: ningún .pw sobrevive a la sesión que lo creó.
-function removeStalePasswordFiles() {
-  const dir = path.join(app.getPath("userData"), "bitlocker");
-  let names = [];
-  try {
-    names = fs.readdirSync(dir);
-  } catch {
-    return;
-  }
-  for (const name of names) if (name.endsWith(".pw")) removePasswordFile(path.join(dir, name));
-}
-
-// PID del ayudante por "<letra>-<acción>", para detectar si se cerró sin
-// terminar (p. ej. lo cerró el Administrador de tareas).
-const helperPids = new Map();
-
-async function launchHelper(action, key, extra = {}) {
-  const result = await launchBitLockerHelper({
-    action,
-    letter: key[0],
-    statusFile: helperStatusPath(key[0], action),
-    scriptPath: BITLOCKER_HELPER,
-    ...extra,
-  });
-  if (result.started) helperPids.set(`${key[0]}-${action}`, result.pid || null);
-  return result;
-}
-
-// Antes de cifrar o bloquear se relee la lista de discos (no se usa la de la
-// pantalla, que puede estar vieja si se cambió un disco) y se comprueba que la
-// letra sigue siendo el volumen elegido y que no está en el disco del sistema.
-// El ayudante elevado repite la comprobación justo antes de actuar.
-async function assertBitLockerTarget(driveRoot, volumeId) {
-  const key = await assertDestRoot(driveRoot);
-  const check = checkBitLockerTarget(await refreshDrives(), key[0], volumeId);
-  if (!check.ok) throw new Error(check.error);
-  return key;
-}
-
-// Lanza el ayudante elevado. La promesa se resuelve cuando el usuario responde
-// el aviso de UAC; el resto (clave de recuperación, progreso) se sigue con
-// encryption:job-status. La contraseña (options.password) se escribe en el
-// panel de la app: se valida, se protege con DPAPI y se entrega al ayudante en
-// un archivo; nunca va en la línea de comandos ni se guarda en texto plano.
-ipcMain.handle("encryption:encrypt", async (_event, driveRoot, options = {}) => {
-  const key = await assertBitLockerTarget(driveRoot, options.volumeId);
-  const status = await getEncryptionStatus(key);
-  if (!status.canEncrypt) {
-    throw new Error("Esta edición de Windows no puede cifrar discos con BitLocker (sí puede abrir discos ya cifrados).");
-  }
-  if (status.state !== "off") throw new Error("Este disco ya tiene BitLocker configurado.");
-
-  let passwordFile = null;
-  if (options.password !== undefined) {
-    const check = validateNewPassword(options.password);
-    if (!check.ok) throw new Error(check.error);
-    passwordFile = helperPasswordPath(key[0]);
-    const blob = await protectPasswordForHelper(options.password);
-    fs.mkdirSync(path.dirname(passwordFile), { recursive: true });
-    fs.writeFileSync(passwordFile, blob, "utf-8");
-  }
-  try {
-    const result = await launchHelper("Encrypt", key, {
-      fullDisk: !!options.fullDisk,
-      volumeId: options.volumeId,
-      passwordFile,
-    });
-    if (passwordFile) {
-      if (!result.started) removePasswordFile(passwordFile);
-      else setTimeout(() => removePasswordFile(passwordFile), PASSWORD_FILE_MAX_AGE_MS).unref();
-    }
-    return result;
-  } catch (err) {
-    if (passwordFile) removePasswordFile(passwordFile);
-    throw err;
-  }
-});
-
-ipcMain.handle("encryption:lock", async (_event, driveRoot, volumeId) => {
-  const key = await assertBitLockerTarget(driveRoot, volumeId);
-  const status = await getEncryptionStatus(key);
-  if (status.state !== "on") throw new Error("Sólo se puede bloquear un disco cifrado y desbloqueado.");
-  return launchHelper("Lock", key, { volumeId });
-});
-
-// { status: JSON del ayudante o null, alive: true | false | null (desconocido) }
-ipcMain.handle("encryption:job-status", async (_event, driveRoot, action) => {
-  const key = await assertDestRoot(driveRoot);
-  if (action !== "Encrypt" && action !== "Lock") throw new Error("Acción no válida.");
-  return {
-    status: readHelperStatus(helperStatusPath(key[0], action)),
-    alive: isProcessAlive(helperPids.get(`${key[0]}-${action}`)),
-  };
-});
-
-// Desbloquear no necesita administrador: abre el cuadro de contraseña de
-// Windows y devuelve el estado real al cerrarlo.
-ipcMain.handle("encryption:unlock", async (_event, driveRoot) => {
-  const key = await assertDestRoot(driveRoot);
-  await unlockWithWindowsPrompt(key);
-  return getEncryptionStatus(key);
-});
-
 // --- Expulsar el disco destino ------------------------------------------------
 // Como "Quitar hardware de forma segura", sin administrador. Antes se comprueba
 // con la lista de discos recién leída que la letra sigue siendo el volumen
@@ -969,7 +944,7 @@ const EJECT_SCRIPT = ejectScriptPath(path.join(__dirname, "lib"));
 
 ipcMain.handle("drive:eject", async (_event, driveRoot, volumeId) => {
   const key = await assertDestRoot(driveRoot);
-  const check = checkBitLockerTarget(await refreshDrives(), key[0], volumeId);
+  const check = checkDriveTarget(await refreshDrives(), key[0], volumeId);
   if (!check.ok) {
     throw new Error(
       check.code === "system-disk"
@@ -1030,16 +1005,23 @@ ipcMain.handle("backup:copy-files", async (event, tasks, options = {}) => {
 
   const destKey = await assertDestRoot(tasks[0].destRoot);
   await assertDestVolumeUnchanged(destKey, options.destVolumeId);
+  const masterKey = await destCryptoKey(destKey);
 
   // Se valida TODO antes de copiar nada: una tarea inválida se informa como
-  // error y no se copia; las demás siguen.
+  // error y no se copia; las demás siguen. En un backup cifrado, la ruta que
+  // pide la interfaz ("logicalDest") se cambia por su nombre opaco en datos\.
   const validTasks = [];
   for (const task of tasks) {
     try {
       if ((await assertDestRoot(task.destRoot)) !== destKey) throw new Error("Tareas con distinto disco destino.");
       assertSourcePath(task.srcPath);
       assertBackupRelative(destKey, task.relativeDest);
-      validTasks.push({ ...task, destRoot: destKey, dedup: !!options.dedup });
+      let relativeDest = task.relativeDest;
+      if (masterKey) {
+        relativeDest = almacen.dataRelative(masterKey, task.relativeDest).relative;
+        assertBackupRelative(destKey, relativeDest, almacen.DATA_DIR);
+      }
+      validTasks.push({ ...task, relativeDest, logicalDest: task.relativeDest, destRoot: destKey, dedup: !!options.dedup });
     } catch (err) {
       errors.push({ file: String(task && task.relativeDest), error: err.message });
     }
@@ -1050,10 +1032,11 @@ ipcMain.handle("backup:copy-files", async (event, tasks, options = {}) => {
   // El índice se carga siempre (no sólo con dedup) para mantenerlo al día:
   // cada ruta sobrescrita olvida los hashes que apuntaban a ella.
   const ctx = {
-    index: loadContentIndex(destKey),
+    index: loadContentIndex(destKey, masterKey),
     pendingWrites: new Map(),
     maxFileSize: fsInfo.maxFileSize,
     madeDirs: new Set(),
+    masterKey,
   };
   const concurrency = options.concurrency > 0 ? options.concurrency : BACKUP_CONCURRENCY;
   const journalPath = startJournal(journalDir(destKey), validTasks);
@@ -1067,16 +1050,16 @@ ipcMain.handle("backup:copy-files", async (event, tasks, options = {}) => {
       const result = await copyOneTask(task, ctx);
       if (result.dedup) deduped++;
       copied++;
-      done.push({ relativeDest: task.relativeDest, hash: result.hash });
+      done.push({ relativeDest: task.logicalDest, hash: result.hash });
       journal.add(task.relativeDest);
       if (Date.now() - indexSavedAt >= INDEX_SAVE_INTERVAL_MS) {
-        saveContentIndex(destKey, ctx.index);
+        saveContentIndex(destKey, ctx.index, masterKey);
         indexSavedAt = Date.now();
       }
       bytesDone += Number.isFinite(task.size) ? task.size : 0;
-      progress(copied, task.relativeDest, bytesDone);
+      progress(copied, task.logicalDest, bytesDone);
     } catch (err) {
-      errors.push({ file: task.relativeDest, error: describeCopyError(err, task.relativeDest), code: err.code });
+      errors.push({ file: task.logicalDest, error: describeCopyError(err, task.logicalDest), code: err.code });
     }
   }
 
@@ -1089,7 +1072,7 @@ ipcMain.handle("backup:copy-files", async (event, tasks, options = {}) => {
   progress.flush();
   journal.flush();
 
-  saveContentIndex(destKey, ctx.index);
+  saveContentIndex(destKey, ctx.index, masterKey);
 
   // Con copia a temporal + rename, un error sólo puede dejar temporales: se
   // limpian ahora mismo y el journal ya no hace falta.
@@ -1116,11 +1099,30 @@ ipcMain.handle("backup:copy-versions", async (event, tasks, options = {}) => {
 
   const destKey = await assertDestRoot(tasks[0].destRoot);
   await assertDestVolumeUnchanged(destKey, options.destVolumeId);
+  const masterKey = await destCryptoKey(destKey);
   const validTasks = [];
   for (const task of tasks) {
     try {
       if ((await assertDestRoot(task.destRoot)) !== destKey) throw new Error("Tareas con distinto disco destino.");
       assertInsideBackup(task.srcPath);
+      if (masterKey) {
+        // Backup cifrado: el archivo anterior ya está cifrado en datos\; se
+        // enlaza (o copia) tal cual con un nombre opaco, sin comprimir.
+        const srcRelative = path.relative(destKey, task.srcPath);
+        const srcPath = assertBackupRelative(destKey, almacen.dataRelative(masterKey, srcRelative).relative, almacen.DATA_DIR);
+        const v = almacen.versionRelative(masterKey, task.relativeDest);
+        const target = assertBackupRelative(destKey, v.relative, path.join(METADATA_DIR, "versions"));
+        validTasks.push({
+          ...task,
+          srcPath,
+          target,
+          stamp: v.stamp,
+          logical: v.logical,
+          versionRelative: v.relative,
+          journalRelative: path.relative(destKey, target),
+        });
+        continue;
+      }
       const target = assertBackupRelative(destKey, task.relativeDest + ".gz", path.join(METADATA_DIR, "versions"));
       validTasks.push({ ...task, target, journalRelative: path.relative(destKey, target) });
     } catch (err) {
@@ -1147,6 +1149,7 @@ ipcMain.handle("backup:copy-versions", async (event, tasks, options = {}) => {
   let copied = 0;
   let stopped = false;
   let bytesDone = 0;
+  const saved = []; // versiones cifradas guardadas: { stamp, logical, relative }
   const progress = progressSender(event, "versions", writableTasks.length);
   for (const task of writableTasks) {
     if (isCancelled(options.opId)) {
@@ -1154,7 +1157,12 @@ ipcMain.handle("backup:copy-versions", async (event, tasks, options = {}) => {
       break;
     }
     try {
-      await writeVersionAtomic(task.srcPath, task.target);
+      if (masterKey) {
+        await preserveEncryptedVersion(task.srcPath, task.target);
+        saved.push({ stamp: task.stamp, logical: task.logical, relative: task.versionRelative });
+      } else {
+        await writeVersionAtomic(task.srcPath, task.target);
+      }
       copied++;
       journal.add(task.journalRelative);
       bytesDone += Number(task.size) || 0;
@@ -1166,6 +1174,15 @@ ipcMain.handle("backup:copy-versions", async (event, tasks, options = {}) => {
 
   progress.flush();
   journal.flush();
+  if (masterKey) {
+    for (const stamp of new Set(saved.map((v) => v.stamp))) {
+      try {
+        almacen.recordVersions(destKey, masterKey, stamp, saved.filter((v) => v.stamp === stamp));
+      } catch (err) {
+        errors.push({ file: "versions/" + stamp, error: "No se pudo guardar el índice de versiones: " + err.message });
+      }
+    }
+  }
   if (journalPath) {
     checkJournals(journalDir(destKey), destKey);
     finishJournal(journalPath);
@@ -1177,7 +1194,43 @@ ipcMain.handle("backup:copy-versions", async (event, tasks, options = {}) => {
 // Último backup en ese disco (fecha, cuántos archivos), o null si no hay.
 ipcMain.handle("backup:last-run", async (_event, destRoot) => {
   const key = await assertDestRoot(destRoot);
+  if (almacen.isEncrypted(key)) {
+    // Cerrado: no se puede leer cuándo fue el último backup.
+    const masterKey = await destCryptoKey(key).catch(() => null);
+    return masterKey ? summarizeLastBackup(almacen.logsDir(key), almacen.logReader(masterKey)) : { locked: true };
+  }
   return summarizeLastBackup(path.join(metadataDir(key), "logs"));
+});
+
+// --- Kopia Desk portable en el disco de backup ---------------------------------
+// La versión portable viaja dentro del instalador (scripts/build.js) y se copia
+// al disco al terminar un backup, para abrir las copias en otro PC sin instalar
+// nada. Si la app ya se está ejecutando como portable, se copia a sí misma.
+const PORTABLE_BUILD_NAME = "KopiaDesk-Portable.exe";
+
+function portableSource() {
+  const running = process.env.PORTABLE_EXECUTABLE_FILE;
+  if (running && fs.existsSync(running)) return running;
+  const packed = path.join(process.resourcesPath, "portable", PORTABLE_BUILD_NAME);
+  if (fs.existsSync(packed)) return packed;
+  // En desarrollo (npm start), la que haya compilado npm run build.
+  if (!app.isPackaged) {
+    const dev = path.join(__dirname, "dist", "portable", PORTABLE_BUILD_NAME);
+    if (fs.existsSync(dev)) return dev;
+  }
+  return null;
+}
+
+ipcMain.handle("backup:ensure-portable", async (event, destRoot, destVolumeId) => {
+  const key = await assertDestRoot(destRoot);
+  await assertDestVolumeUnchanged(key, destVolumeId);
+  const source = portableSource();
+  if (source) event.sender.send("progress", { phase: "portable", current: 0, total: 1, file: almacen.PORTABLE_NAME });
+  try {
+    return await almacen.ensurePortableApp(key, source);
+  } catch (err) {
+    return { copied: false, reason: "error", error: err.message };
+  }
 });
 
 // Abre en el Explorador la carpeta del backup de ese disco (si existe).
@@ -1191,13 +1244,22 @@ ipcMain.handle("backup:open-folder", async (_event, destRoot) => {
 
 ipcMain.handle("log:save", async (_event, destRoot, sourceName, report) => {
   const key = await assertDestRoot(destRoot);
+  const masterKey = await destCryptoKey(key);
+  if (masterKey) return almacen.saveLog(key, masterKey, report);
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   const logPath = path.join(metadataDir(key), "logs", `${safeName(sourceName)}_${stamp}.json`);
   atomicWriteFileSync(logPath, JSON.stringify(report, null, 2));
   return logPath;
 });
 
-function readManifestForRestore(destKey, sourceName) {
+function readManifestForRestore(destKey, sourceName, masterKey = null) {
+  if (masterKey) {
+    const { manifest, warning } = loadManifestWithFallback(destKey, sourceName, masterKey);
+    if (!Object.keys(manifest).length) {
+      throw new Error(warning || "No se encontró manifiesto de backup para: " + sourceName);
+    }
+    return { manifest, warning };
+  }
   const manifestPath = manifestFilePath(destKey, sourceName);
   if (!fs.existsSync(manifestPath)) {
     throw new Error("No se encontró manifiesto de backup para: " + sourceName);
@@ -1210,14 +1272,29 @@ function readManifestForRestore(destKey, sourceName) {
   return { manifest, warning };
 }
 
+// Ruta en el disco del archivo "relativePath" de la carpeta respaldada: la de
+// siempre sin cifrar, o su nombre opaco en datos\ si está cifrado. Lanza si
+// una clave del manifiesto (manipulado) intenta salirse del backup.
+function backupFileLocator(destKey, sourceName, masterKey) {
+  if (masterKey) {
+    return (relativePath) => {
+      safePath(path.join(destKey, BACKUP_ROOT, safeName(sourceName)), relativePath);
+      return almacen.dataPath(destKey, masterKey, sourceName, relativePath);
+    };
+  }
+  const backupDir = path.join(destKey, BACKUP_ROOT, safeName(sourceName));
+  return (relativePath) => safePath(backupDir, relativePath);
+}
+
 ipcMain.handle("restore:scan", async (event, backupDrive, sourceName, localFolderPath) => {
   const key = await assertDestRoot(backupDrive);
   if (!insideAny(allowed.sources, localFolderPath) && !insideAny(allowed.comparePaths, localFolderPath)) {
     throw new Error("Carpeta local no autorizada: " + localFolderPath);
   }
-  const { manifest, warning } = readManifestForRestore(key, sourceName);
+  const masterKey = await destCryptoKey(key);
+  const { manifest, warning } = readManifestForRestore(key, sourceName, masterKey);
 
-  const backupDir = path.join(key, BACKUP_ROOT, safeName(sourceName));
+  const locate = backupFileLocator(key, sourceName, masterKey);
   const localFiles = await scanDirectoryRecursive(localFolderPath, "", compileExcludePatterns(DEFAULT_EXCLUDES));
   const missing = [];
   const lostFromBackup = [];
@@ -1233,7 +1310,7 @@ ipcMain.handle("restore:scan", async (event, backupDrive, sourceName, localFolde
     // backup": no se puede restaurar de forma segura desde acá.
     let backupFilePath;
     try {
-      backupFilePath = safePath(backupDir, relativePath);
+      backupFilePath = locate(relativePath);
     } catch {
       lostFromBackup.push({ ...fileInfo, path: relativePath });
       continue;
@@ -1278,14 +1355,27 @@ ipcMain.handle("restore:copy-files", async (event, files, targetDir, options = {
   const progress = progressSender(event, "restore", total);
   let bytesDone = 0;
 
+  // Clave de cada disco de backup que aparece en la lista (normalmente uno).
+  const keys = new Map();
+  async function keyFor(backupFullPath) {
+    const destKey = [...allowed.destRoots].find((k) => isInside(backupRootOf(k), backupFullPath));
+    if (!keys.has(destKey)) keys.set(destKey, destCryptoKey(destKey));
+    return keys.get(destKey);
+  }
+
   async function restoreOne(file) {
     try {
       assertInsideBackup(file.backupFullPath);
       const dest = safePath(targetDir, file.path);
+      const masterKey = await keyFor(file.backupFullPath);
       await ensureDir(path.dirname(dest), madeDirs);
       // Misma copia verificada que el backup, más el chequeo contra el hash
       // del manifiesto (ver comentario de restoreFileVerified en core.js).
-      await restoreFileVerified(file.backupFullPath, dest, file.hash);
+      if (masterKey) {
+        await restoreEncryptedVerified(masterKey, file.backupFullPath, dest, file.hash, Number(file.lastModified));
+      } else {
+        await restoreFileVerified(file.backupFullPath, dest, file.hash);
+      }
       copied++;
       bytesDone += Number(file.size) || 0;
       progress(copied, file.path, bytesDone);
@@ -1307,6 +1397,8 @@ ipcMain.handle("restore:copy-files", async (event, files, targetDir, options = {
 
 ipcMain.handle("restore:list-sources", async (_event, backupDrive) => {
   const key = await assertDestRoot(backupDrive);
+  const masterKey = await destCryptoKey(key);
+  if (masterKey) return almacen.listSources(key, masterKey);
   const mDir = manifestDir(key);
   if (!fs.existsSync(mDir)) return [];
   return fs
@@ -1321,8 +1413,9 @@ ipcMain.handle("restore:list-sources", async (_event, backupDrive) => {
 // no existe (PC formateado, perfil de usuario distinto, etc.).
 ipcMain.handle("restore:full-list", async (_event, backupDrive, sourceName) => {
   const key = await assertDestRoot(backupDrive);
-  const { manifest } = readManifestForRestore(key, sourceName);
-  const backupDir = path.join(key, BACKUP_ROOT, safeName(sourceName));
+  const masterKey = await destCryptoKey(key);
+  const { manifest } = readManifestForRestore(key, sourceName, masterKey);
+  const locate = backupFileLocator(key, sourceName, masterKey);
   const result = [];
   for (const [relativePath, fileInfo] of Object.entries(manifest)) {
     // Mismo motivo que en restore:scan: una clave de manifiesto manipulada no
@@ -1331,7 +1424,7 @@ ipcMain.handle("restore:full-list", async (_event, backupDrive, sourceName) => {
     // restaurar, pero no hace falta ofrecerla como si fuera válida).
     let backupFullPath;
     try {
-      backupFullPath = safePath(backupDir, relativePath);
+      backupFullPath = locate(relativePath);
     } catch {
       continue;
     }

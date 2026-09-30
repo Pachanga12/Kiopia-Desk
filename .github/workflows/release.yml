@@ -37,8 +37,9 @@ jobs:
           npm test
 
       # Sin certificado de firma de código (ver README → Seguridad).
+      # Portable (dist/portable) + instalador que la lleva dentro (scripts/build.js).
       - name: Build installer
-        run: npm run build -- --publish never
+        run: npm run build
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
 
@@ -47,5 +48,7 @@ jobs:
         with:
           tag_name: ${{ github.event.inputs.tag_name || github.ref_name }}
           name: Kopia Desk ${{ github.event.inputs.tag_name || github.ref_name }}
-          files: dist/*.exe
+          files: |
+            dist/*.exe
+            dist/portable/*.exe
           generate_release_notes: true

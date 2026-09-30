@@ -16,8 +16,17 @@ const {
   summarizeLastBackup,
 } = require("../lib/core.js");
 
+// Las carpetas temporales se borran al terminar (antes quedaban en %TEMP%
+// después de cada npm test).
+const tmpDirs = [];
+process.on("exit", () => {
+  for (const d of tmpDirs) fs.rmSync(d, { recursive: true, force: true });
+});
+
 function tmpDir() {
-  return fs.mkdtempSync(path.join(os.tmpdir(), "kd-excluir-"));
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), "kd-excluir-"));
+  tmpDirs.push(d);
+  return d;
 }
 
 function arbol() {

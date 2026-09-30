@@ -1,4 +1,4 @@
-﻿; Kopia Desk v2 — personalización del instalador (electron-builder, NSIS asistido).
+﻿; Kopia Desk v3 — personalización del instalador (electron-builder, NSIS asistido).
 ;
 ; Instalador:   bienvenida → licencia ("Acepto") → instalación → final con
 ;               "Abrir Kopia Desk" y "Crear acceso directo en el escritorio".
@@ -34,6 +34,19 @@
   !define MUI_LICENSEPAGE_CHECKBOX
   !define MUI_LICENSEPAGE_CHECKBOX_TEXT "Acepto los términos de la licencia"
   !define MUI_LICENSEPAGE_TEXT_TOP "Lee la licencia de Kopia Desk. Para instalar, tienes que aceptarla."
+!macroend
+
+; --- Al actualizar desde la v2 --------------------------------------------------------
+; El acceso directo del escritorio de la v2 («Kopia Desk v2») apunta a
+; «Kopia Desk v2.exe», que ya no existe: se sustituye por el de esta versión.
+; Si ya había uno de esta versión, se rehace (por si la carpeta cambió).
+!macro customInstall
+  ${If} ${FileExists} "$DESKTOP\Kopia Desk v2.lnk"
+  ${OrIf} ${FileExists} "$DESKTOP\${KD_SHORTCUT}.lnk"
+    Delete "$DESKTOP\Kopia Desk v2.lnk"
+    CreateShortCut "$DESKTOP\${KD_SHORTCUT}.lnk" "$appExe" "" "$appExe" 0
+    WinShell::SetLnkAUMI "$DESKTOP\${KD_SHORTCUT}.lnk" "${APP_ID}"
+  ${EndIf}
 !macroend
 
 ; --- Final: abrir la app y acceso directo en el escritorio -----------------------

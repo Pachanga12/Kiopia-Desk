@@ -555,128 +555,90 @@ svg {
   align-items: start;
 }
 
-/* --- Bienvenida (sin carpetas todavía) ---------------------------------- */
+/* --- Tutorial (renderer/tutorial.js) ------------------------------------ */
 
-.welcome-card {
-  display: grid;
-  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
-  gap: 18px 28px;
-  align-items: center;
-  border-color: var(--primary-border);
-  background: linear-gradient(135deg, var(--primary-tint), var(--surface) 60%);
+/* Capa sobre toda la ventana: no deja tocar la app mientras dura. */
+.tour-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
 }
 
-.welcome-eyebrow {
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+/* Sin parte que señalar, la capa misma sombrea. */
+.tour-overlay.tour-plain {
+  background: rgba(0, 0, 0, 0.72);
+}
+
+/* El recuadro deja ver la parte explicada; su sombra enorme oscurece el resto. */
+.tour-spot {
+  position: fixed;
+  border-radius: 12px;
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.72);
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  pointer-events: none;
+  transition:
+    left 0.25s ease,
+    top 0.25s ease,
+    width 0.25s ease,
+    height 0.25s ease;
+}
+
+.tour-card {
+  position: fixed;
+  width: min(360px, calc(100vw - 24px));
+  padding: 18px 20px 16px;
+  border: 1px solid var(--primary);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-flyout);
+  transition:
+    left 0.25s ease,
+    top 0.25s ease;
+}
+
+.tour-count {
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--primary);
 }
 
-.welcome-title {
-  margin: 4px 0 6px;
-  font-size: 1.35rem;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-  text-wrap: balance;
+.tour-card h2 {
+  margin: 6px 0 8px;
+  font-size: 1.05rem;
 }
 
-.welcome-intro p {
+.tour-card p {
   margin: 0;
-  max-width: 52ch;
   font-size: 0.86rem;
+  line-height: 1.5;
   color: var(--ink-variant);
 }
 
-.welcome-steps {
-  display: grid;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.welcome-step {
+.tour-actions {
   display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 12px;
-  width: 100%;
-  height: auto;
-  padding: 9px 12px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface);
-  color: var(--ink);
-  text-align: left;
-  font-weight: 400;
+  gap: 8px;
+  margin-top: 16px;
 }
 
-button.welcome-step {
-  cursor: pointer;
+.tour-actions button {
+  height: 32px;
+  padding: 0 14px;
 }
 
-button.welcome-step:hover:not(:disabled) {
-  border-color: var(--primary);
+/* "Saltar" a la izquierda; Atrás y Siguiente a la derecha. */
+.tour-actions .tour-skip {
+  margin-right: auto;
+  padding: 0 6px;
 }
 
-.welcome-num {
-  display: grid;
-  place-content: center;
-  flex: none;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  border: 1px solid var(--line);
-  background: var(--surface-low);
-  color: var(--ink-variant);
-  font-size: 0.82rem;
-  font-weight: 700;
-}
-
-.welcome-text {
-  display: grid;
-  gap: 1px;
-  min-width: 0;
-}
-
-.welcome-text strong {
-  font-size: 0.88rem;
-  font-weight: 600;
-}
-
-.welcome-text small {
-  font-size: 0.75rem;
-  color: var(--ink-variant);
-}
-
-/* El siguiente paso a hacer, resaltado */
-.welcome-step[data-state="next"] {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px var(--primary-tint);
-}
-
-.welcome-step[data-state="next"] .welcome-num {
-  border-color: var(--primary);
-  background: var(--primary);
-  color: var(--on-primary);
-}
-
-/* Paso cumplido: ✔ en verde */
-.welcome-step[data-state="done"] .welcome-num {
-  border-color: var(--good);
-  background: var(--good-tint);
-  color: var(--good);
-}
-
-.welcome-step[data-state="done"] strong {
-  color: var(--ink-variant);
-}
-
-@media (max-width: 1000px) {
-  .welcome-card {
-    grid-template-columns: 1fr;
+@media (prefers-reduced-motion: reduce) {
+  .tour-spot,
+  .tour-card {
+    transition: none;
   }
 }
 
@@ -1615,19 +1577,18 @@ button:disabled {
   margin-top: 10px;
 }
 
-.encryption-panel[data-state="on"] {
+.encryption-panel[data-state="open"] {
   border-left-color: var(--good);
 }
 
-.encryption-panel[data-state="encrypting"],
-.encryption-panel[data-state="suspended"],
-.encryption-panel[data-state="decrypting"] {
+/* Copias cifradas y cerradas: falta la contraseña para usarlas. */
+.encryption-panel[data-state="locked"],
+.encryption-panel[data-state="plain"] {
   border-left-color: var(--warn);
+  background: var(--warn-tint);
 }
 
-.encryption-panel[data-state="off"],
-.encryption-panel[data-state="waiting"],
-.encryption-panel[data-state="locked"] {
+.encryption-panel[data-state="off"] {
   border-left-color: var(--bad);
   background: var(--bad-tint);
 }
@@ -1696,19 +1657,26 @@ button:disabled {
   color: var(--ink-variant);
 }
 
-.encryption-progress {
-  margin-top: 10px;
-  height: 6px;
-  border-radius: 3px;
-  background: var(--track);
-  overflow: hidden;
+/* Clave de recuperación: grande, monoespaciada y seleccionable de una vez. */
+.recovery-key {
+  margin: 14px 0 6px;
+  padding: 14px 12px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: "Cascadia Mono", Consolas, "Courier New", monospace;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-align: center;
+  word-break: break-all;
+  user-select: all;
 }
 
-.encryption-progress-fill {
-  height: 100%;
-  width: 0%;
-  background: var(--primary);
-  transition: width 0.4s ease;
+.kd-dialog-actions.recovery-actions {
+  margin-top: 0;
+  justify-content: center;
 }
 
 /* Ventana de confirmación (dialog nativo) */
@@ -1738,33 +1706,20 @@ button:disabled {
   color: var(--ink-variant);
 }
 
+/* Aviso dentro de un cuadro (p. ej. "copia antes lo que tenga el disco") */
+.kd-dialog p.kd-warning {
+  padding: 10px 12px;
+  border-left: 4px solid var(--warn);
+  border-radius: 8px;
+  background: var(--warn-tint);
+  color: var(--ink);
+}
+
 .kd-steps {
   margin: 0 0 14px;
   padding-left: 20px;
   font-size: 0.86rem;
   line-height: 1.55;
-}
-
-.kd-scope {
-  margin: 0 0 12px;
-  padding: 10px 12px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-}
-
-.kd-scope legend {
-  padding: 0 4px;
-  font-size: 0.8rem;
-  font-weight: 600;
-}
-
-.kd-scope label {
-  display: flex;
-  gap: 8px;
-  align-items: flex-start;
-  margin: 6px 0;
-  font-size: 0.85rem;
-  cursor: pointer;
 }
 
 .kd-dialog-actions {
@@ -2235,4 +2190,123 @@ button:disabled {
 .drive-info-col {
   min-width: 0;
   flex: 1 1 auto;
+}
+
+/* --- Restaurar por carpetas (árbol con casillas) --------------------------- */
+
+.restore-source + .restore-source {
+  margin-top: 8px;
+}
+
+#restoreFullList .source-pill {
+  grid-template-columns: minmax(72px, auto) minmax(0, 1fr) auto auto;
+}
+
+/* Más específico que .source-pill button (el botón pequeño "×" de las filas). */
+#restoreFullList .source-pill .restore-go-btn,
+#restoreFullList .source-pill .restore-pick-btn {
+  width: auto;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 8px;
+  white-space: nowrap;
+  font-size: 0.82rem;
+}
+
+#restoreFullList .source-pill .restore-go-btn {
+  border: 1px solid var(--primary);
+  background: var(--primary);
+  color: var(--on-primary);
+}
+
+#restoreFullList .source-pill .restore-go-btn:hover:not(:disabled) {
+  background: var(--primary-deep);
+  border-color: var(--primary-deep);
+  color: var(--on-primary);
+}
+
+#restoreFullList .source-pill .restore-pick-btn:hover {
+  background: var(--surface-high);
+  color: var(--ink);
+}
+
+.restore-tree {
+  margin: 6px 0 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  background: var(--surface-low);
+}
+
+.restore-tree-summary {
+  margin: 0 0 8px;
+  font-size: 0.8rem;
+  color: var(--ink-variant);
+}
+
+.restore-tree-list {
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.tree-row {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  padding-left: calc(var(--depth, 0) * 18px);
+  border-radius: 6px;
+}
+
+.tree-row:hover {
+  background: var(--surface-high);
+}
+
+.tree-toggle {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink-variant);
+  font-size: 0.8rem;
+}
+
+/* Carpeta sin subcarpetas: el hueco de la flecha se mantiene (alinea las filas). */
+.tree-toggle.is-leaf {
+  visibility: hidden;
+}
+
+.tree-toggle:hover:not(:disabled) {
+  color: var(--primary);
+  transform: none;
+}
+
+.tree-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.tree-check input {
+  flex: none;
+  accent-color: var(--primary);
+}
+
+.tree-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.tree-meta {
+  font-size: 0.74rem;
+  color: var(--ink-variant);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }

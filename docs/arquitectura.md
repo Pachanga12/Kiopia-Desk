@@ -1,13 +1,14 @@
-# Kopia Desk v2 — Arquitectura del proyecto
+# Kopia Desk v3 — Arquitectura del proyecto
 
 ## Qué hace la aplicación
 
-Kopia Desk v2 es una aplicación de escritorio para Windows que hace copias de
+Kopia Desk v3 es una aplicación de escritorio para Windows que hace copias de
 seguridad incrementales de carpetas locales hacia discos externos o USB. Compara
 el estado actual de cada carpeta contra el manifiesto del último backup, copia
 sólo lo que cambió (con copia atómica y verificada por SHA-256), permite restaurar
-lo que falte en el PC y gestiona el cifrado BitLocker del disco destino (detectar,
-cifrar, desbloquear y bloquear) sin tocar nunca el disco donde está Windows.
+lo que falte en el PC y, si se quiere, guarda las copias cifradas con una
+contraseña (contenido y nombres), que se abren en cualquier Windows con la app
+o, sin ella, con el programa que queda en el propio disco.
 
 ---
 
@@ -22,23 +23,34 @@ Kopia-Desk/
 │
 ├── lib/
 │   ├── core.js                ← Lógica testeable sin Electron: escaneo, hashing, copia
-│   │                            verificada, dedup, journal, discos, BitLocker (lanzador)
-│   └── bitlocker-helper.ps1   ← Ayudante que corre ELEVADO para cifrar/bloquear con BitLocker
+│   │                            verificada (también cifrada), dedup, journal, discos
+│   ├── cifrado.js             ← Cifrado propio (v3): caja de claves, archivos, nombres opacos
+│   ├── almacen.js             ← Dónde y cómo se guarda cada cosa en un disco cifrado
+│   ├── Recuperar-KopiaDesk.ps1 ← Se copia al disco: abre las copias cifradas SIN la app
+│   │                            (ventana «Abrir» y recuperación por consola)
+│   └── eject-drive.ps1        ← Expulsar el disco (sin elevar)
 │
 ├── renderer/                  ← Interfaz (sin acceso a Node.js)
 │   ├── index.html             ← Estructura de la pantalla
+│   ├── compare.js             ← Qué es nuevo, cambiado o eliminado (probado aparte)
+│   ├── restore-tree.js        ← Árbol de carpetas para restaurar (probado aparte)
 │   ├── app.js                 ← Lógica de la interfaz
 │   └── styles.css             ← Estilos ("Fluent Obsidian", tema claro/oscuro)
 │
 ├── assets/Kopia_Desk_icon.png ← Icono de la app y del instalador
 │
-├── test/                      ← node --test (154 tests)
+├── test/                      ← node --test (164 tests)
 │   ├── core.test.js           ← Lógica base: rutas, exclusiones, escaneo, hash, journal
 │   ├── integridad.test.js     ← Problemas 1–5: copia atómica, dedup, escrituras atómicas
-│   ├── bitlocker.test.js      ← Lanzamiento del ayudante: argumentos, entrecomillado, estado
+│   ├── cifrado.test.js        ← Cifrado: caja, clave de recuperación, alteraciones; Node ↔ PowerShell
+│   ├── cifrado-copia.test.js  ← Copia, dedup, versiones y restauración cifradas en el núcleo
+│   ├── almacen.test.js        ← Disco cifrado de punta a punta: nada legible en el disco
+│   ├── recuperar.test.js      ← Recuperar SIN la app con el script copiado en el disco
+│   ├── windows.test.js        ← Contraseña, expulsar y consultas a Windows
 │   ├── disco-sistema.test.js  ← Protección del disco del sistema y cambios de disco
-│   │                            (misma tabla de escenarios evaluada por la app y el ayudante)
-│   └── excluir.test.js        ← Excluir carpetas/archivos concretos y "Último backup"
+│   ├── excluir.test.js        ← Excluir carpetas/archivos concretos y "Último backup"
+│   ├── restore-tree.test.js   ← Restaurar por carpetas (árbol y selección)
+│   └── veracrypt.test.js      ← Unidades de VeraCrypt
 │
 ├── docs/
 │   ├── arquitectura.md        ← Este archivo
@@ -48,7 +60,8 @@ Kopia-Desk/
 │   ├── ci.yml                 ← Lint y tests en GitHub Actions (Windows y Ubuntu, Node 20 y 22)
 │   └── release.yml            ← Compila y publica el instalador al subir un tag vX.Y.Z
 ├── LICENSE                    ← MIT
-└── dist/                      ← Lo genera `npm run build` (instalador); no se sube al repo
+├── scripts/build.js           ← npm run build: portable y luego instalador (que la lleva dentro)
+└── dist/                      ← Lo genera `npm run build` (instalador y portable/); no se sube al repo
 ```
 
 ## Por dónde empezar
@@ -60,14 +73,15 @@ Kopia-Desk/
 3. **`renderer/app.js`** corre en la ventana, en sandbox, sin Node.js.
 4. **`lib/core.js`** tiene la lógica que se puede probar sin Electron; `main.js`
    sólo la conecta a canales IPC.
-5. **`lib/bitlocker-helper.ps1`** es lo único que corre como administrador, y
-   sólo cuando el usuario pide cifrar o bloquear.
+5. **`lib/cifrado.js`** y **`lib/Recuperar-KopiaDesk.ps1`** tienen que entenderse
+   byte a byte: cualquier cambio de formato se hace en los dos (los tests lo
+   comprueban). Nada de la app corre como administrador.
 
 | Quiero... | Empieza por... |
 |---|---|
 | Entender qué pasa al escanear/copiar | `renderer/app.js` → `scanAll()` / `backupAll()`; `lib/core.js` → `copyOneTask()` |
 | Entender la copia segura y la deduplicación | `lib/core.js` → `copyFileVerified()`, `ContentIndex`, `copyOneTask()` |
-| Entender el cifrado | `renderer/app.js` → sección "Cifrado del disco destino"; `main.js` → `encryption:*`; `lib/bitlocker-helper.ps1` |
+| Entender el cifrado | `lib/cifrado.js` (formato), `lib/almacen.js` (disco), `main.js` → "Backup cifrado (v3)" y `crypto:*`; `renderer/app.js` → "Cifrado de las copias" |
 | Entender qué rutas acepta el proceso principal | `main.js` → "Validación de rutas que llegan del renderer" |
 | Ver los canales IPC | más abajo, "Canales IPC" |
 
@@ -119,9 +133,15 @@ Kopia-Desk/
    `.kopia-tmp` que `journal:peek`/`journal:check` nunca veían (sólo miran la
    carpeta de journal), y quedaba huérfano para siempre.
 6. **Restauración**: misma copia verificada que el backup.
-7. **BitLocker**: estado sin elevación; cifrar y bloquear lanzan el ayudante
-   elevado tras releer los discos y comprobar identidad de volumen y disco del
-   sistema (`checkBitLockerTarget`); desbloquear usa `bdeunlock.exe`.
+7. **Backup cifrado (v3)**: si el disco tiene `.kopia-data\cifrado.json`, cada
+   manejador pide la clave con `destCryptoKey` (null = sin cifrar; error
+   `CRYPTO_LOCKED` si está cerrado). La clave sólo vive en memoria
+   (`unlockedKeys`), atada al número de serie del volumen. La interfaz sigue
+   pidiendo rutas lógicas (`KopiaDesk_Backup/<carpeta>/<ruta>`) y `main.js` las
+   traduce a nombres opacos en `datos\` con `lib/almacen.js`; manifiestos,
+   índice, rutas recordadas e informes se guardan cifrados. Las versiones de un
+   disco cifrado se enlazan (o copian) ya cifradas, sin gzip, con un
+   `indice.kdc` por fecha para que el script sepa qué era cada una.
 8. Usa `original-fs` (el `fs` de Node sin el parche de Electron que trata los
    `.asar` como carpetas) para poder respaldar archivos `.asar`.
 
@@ -153,11 +173,10 @@ Kopia-Desk/
 | `app:busy` / `app:notify` | La interfaz avisa si está copiando (para cerrar bien) y pide un aviso de Windows si la ventana no está a la vista |
 | `app:get-close-action` / `app:set-close-action` | Qué hace la X: `ask`, `background` o `quit` (en `kopia-desk-window.json`) |
 | `restore:scan` / `restore:full-list` / `restore:list-sources` / `restore:copy-files` | Comparar y restaurar |
-| `encryption:status` | Estado BitLocker sin elevación + `systemProtected` |
-| `encryption:encrypt` / `encryption:lock` | Lanzan el ayudante elevado (requieren el ID de volumen elegido); cifrar recibe la contraseña del panel y la entrega protegida con DPAPI |
-| `encryption:job-status` | Progreso del ayudante (archivo de estado) y si su proceso sigue vivo |
-| `encryption:unlock` | Cuadro de desbloqueo de Windows |
-| `encryption:open-panel` | Panel de BitLocker de Windows (para estados suspendido o a medio configurar) |
+| `crypto:status` | `{ encrypted, unlocked, plainBackup }` del disco |
+| `crypto:enable` | Activa el cifrado con la contraseña (sólo en un disco sin backup sin cifrar); devuelve la clave de recuperación una vez y copia al disco el programa para abrirlo sin la app |
+| `crypto:unlock` / `crypto:lock` | Abre con la contraseña o la clave de recuperación / olvida la clave |
+| `crypto:change-password` | Vuelve a envolver la clave maestra con la contraseña nueva |
 | `drive:eject` | Expulsar el disco destino (quitar hardware de forma segura), comprobando identidad y que no sea el disco del sistema |
 | `settings:load` / `settings:save` | Configuración del usuario |
 | `window:*` | Controles de la ventana sin marco |
@@ -197,7 +216,7 @@ Kopia-Desk/
   abierto mientras la app lo está (`startPowerShellWorker`), porque la primera
   consulta de discos de cada PowerShell nuevo carga módulos de almacenamiento
   (~1,45 s; en uno abierto, ~0,25 s). Sólo ejecuta las consultas fijas de
-  `lib/core.js` (listar discos, tipo de disco, estado de cifrado), de a una;
+  `lib/core.js` (listar discos, tipo de disco), de a una;
   si falla o tarda demasiado se cierra y la consulta se lanza aparte, como
   antes. La primera lista de discos se pide al arrancar, en paralelo con la
   ventana, y el tipo de cada disco se recuerda por su identidad de volumen.
@@ -208,38 +227,41 @@ Kopia-Desk/
   olvida los hashes viejos de esa ruta), `indexEntryMatches` (verifica por
   tamaño y SHA-256 antes de enlazar).
 - **Discos**: `listDrives` (con disco físico, disco del sistema e ID de volumen),
-  `isProtectedSystemVolume`, `checkBitLockerTarget`, `driveIdentityChanged`
-  (mismo chequeo de identidad que `checkBitLockerTarget`, pero para backups
-  normales), `fileSystemInfo` (FAT32, exFAT), `detectDriveType`,
+  `isProtectedSystemVolume`, `checkDriveTarget` (antes de expulsar),
+  `driveIdentityChanged` (durante un backup), `fileSystemInfo` (FAT32, exFAT), `detectDriveType`,
   `pickConcurrency` (un archivo a la vez en pendrives).
-- **BitLocker**: `getEncryptionStatus` (propiedad de shell, sin elevación),
-  `buildHelperLaunchScript` / `launchBitLockerHelper`, `readHelperStatus`,
-  `isProcessAlive`, `unlockWithWindowsPrompt`, `validateNewPassword` y
-  `protectPasswordForHelper` (contraseña del panel protegida con DPAPI).
+- **Copia cifrada**: `encryptFileVerified`, `restoreEncryptedVerified`,
+  `preserveEncryptedVersion`; `copyOneTask` cifra si `ctx.masterKey` y cuenta
+  `CRYPTO_OVERHEAD` (68 bytes) en el límite de FAT32. `validateNewPassword`.
 - **Expulsar**: `ejectDrive` lanza `lib/eject-drive.ps1` (sin elevar) y
   `parseEjectOutput` traduce el resultado y los vetos de Windows.
 - **Journal**: `startJournal` (v2), `peekJournals`, `checkJournals` (en v2 sólo
   borra `.kopia-tmp`).
 
-## `lib/bitlocker-helper.ps1`
+## `lib/cifrado.js` y `lib/almacen.js`
 
-Corre elevado sólo para `-Action Encrypt` o `-Action Lock`. Parámetros sin
-secretos: acción, letra, ruta del archivo de estado, ID de volumen y, al cifrar,
-la ruta del `.pw` con la contraseña del panel protegida con DPAPI.
+- **Formato**: AES-256-CBC + HMAC-SHA256 (cifrar y luego firmar), PBKDF2-SHA256
+  (600.000 vueltas para la contraseña). Archivo: `KDC1` | IV | cifrado | HMAC,
+  por bloques de 4 MB; la firma de todo el archivo se comprueba antes de
+  descifrar. Se eligieron porque los trae PowerShell 5.1 de cualquier Windows.
+- **Caja** (`cifrado.json` + `cifrado.copia.json`): la clave maestra envuelta
+  con la contraseña y con la clave de recuperación (160 bits, 8 grupos de 4).
+- **Nombres opacos**: `opaqueName(clave, tipo, rutaLógica)` = HMAC → `xx/<38 hex>.kdc`.
+- **`almacen.js`**: rutas (`dataRelative`, `dataPath`, `versionRelative`),
+  activar/abrir/cambiar contraseña, manifiestos `{ fuente, carpeta, archivos }`
+  con `.prev.kdc`, rutas recordadas, índice, informes y el índice de versiones.
+  `writeRecoveryTools` copia `Recuperar-KopiaDesk.ps1`, `Abrir-KopiaDesk.cmd`
+  y `LEEME-CIFRADO.txt` a la raíz del backup (al activar y al abrir).
 
-- **Cifrar**: lo primero lee el `.pw` (sólo de la carpeta del archivo de
-  estado) y lo borra; si no se puede usar, pide la contraseña en una ventana
-  propia (mínimo 8 caracteres, el de BitLocker). Comprueba el destino, genera la clave de
-  recuperación (RNG criptográfico, formato BitLocker) y obliga a guardarla fuera
-  del disco; **vuelve a comprobar el destino** y activa BitLocker (AES-256,
-  primero la clave de recuperación, luego la contraseña), confirma los
-  protectores e informa el progreso.
-- **Bloquear**: comprueba el destino, `Lock-BitLocker` y confirma `LockStatus`.
-- **`Test-KdTargetAllowed`**: decisión pura (probada con los mismos escenarios
-  que la app) — sólo permite si la letra sigue siendo el volumen elegido, no es
-  la unidad de Windows y está en un disco físico conocido que no es el del
-  sistema.
-- `-Action Import` sólo carga las funciones (para tests).
+## `lib/Recuperar-KopiaDesk.ps1`
+
+Corre sin elevar en PowerShell 5.1, desde el disco de backup. `-Accion Abrir`
+(la de `Abrir-KopiaDesk.cmd`): ventana de contraseña y árbol de carpetas
+(WinForms) con **Ver** (descifra a `%TEMP%\KopiaDesk-*`, que se borra al cerrar)
+y **Sacar…** (descifrado verificado a la carpeta elegida, sin pisar nada, con la
+fecha original, admite rutas largas y se puede detener). `-Accion Recuperar`:
+todo a una carpeta desde la consola (lo usan los tests). `-Accion Import`: sólo
+carga las funciones.
 
 ## `lib/eject-drive.ps1`
 
@@ -261,17 +283,26 @@ entonces pide `CM_Request_Device_Eject`. Escribe `KD-EJECT:OK`,
   (IntersectionObserver). Bajo el Resumen, la tarjeta **Excluir** (carpetas o
   archivos elegidos con el explorador y, plegados, los patrones por nombre).
   En la tarjeta del disco, **Último backup** con "Abrir carpeta".
-- **Panel de cifrado**: según el estado muestra los campos de contraseña y
-  "Cifrar este disco", "Desbloquear", "Bloquear ahora", "Bloquear el disco al
-  terminar el backup" y "Expulsar" o, para el disco del sistema, sólo una nota
-  sin opciones. Sin cifrar, "Omitir por ahora" lo pliega a una línea
-  (`data-collapsed`, recordado por `volumeId` en `encryptionSkipped`). Cada
-  campo de contraseña tiene un ojo para mostrarla; ↻ vuelve a comprobar.
-- **Comparar** y **Restaurar**: como en la v2 original, con copia verificada.
+- **Panel de cifrado** (`encryptionState`: `off`, `plain`, `locked`, `open`):
+  campos de contraseña nueva y "Cifrar las copias"; contraseña o clave y
+  "Abrir"; "Cerrar ahora", "Cambiar contraseña…", "Cerrar las copias cifradas al
+  terminar el backup" y "Expulsar". La clave de recuperación se muestra una vez
+  (`#recoveryDialog`, no se cierra sin confirmar). Sin cifrar, "Omitir por
+  ahora" lo pliega a una línea (`data-collapsed`, recordado por `volumeId` en
+  `encryptionSkipped`). Con las copias cerradas, escanear, Comparar y Restaurar
+  piden la contraseña (`requireOpenBackup`).
+- **Comparar** y **Restaurar**: con copia verificada. En Restaurar, cada carpeta del
+  backup tiene su árbol de subcarpetas con casillas (restore-tree.js; las
+  subcarpetas se dibujan al abrirlas) y se restaura dentro de una carpeta con su
+  nombre (`withRestoreFolder`).
+- **Disco de backup que vuelve**: al desconectarlo o expulsarlo se guarda en
+  `state.lostDestination` (identidad del volumen); en cada recarga de la lista, si
+  no hay destino, se busca esa identidad y se elige sola, aunque cambie la letra.
+  La configuración guarda también `destinationVolumeId` para encontrarlo al abrir.
 
 Estado principal (`state`), además de lo de la v2 original: `encryption`
-(estado del destino; el cifrado es opcional y sólo un disco bloqueado impide copiar), `encryptionJob`
-(operación de BitLocker en curso), `excludePaths` (rutas excluidas) y
+(`{ encrypted, unlocked, plainBackup }`; el cifrado es opcional y sólo unas copias cerradas impiden copiar), `encryptionJob`
+(cifrar, abrir o expulsar en curso), `excludePaths` (rutas excluidas) y
 `encryptionSkipped` (discos con el cifrado omitido); los dos últimos se guardan
 en la configuración. `destination` incluye `fileSystem`,
 `maxFileSize`, `volumeId` y `onSystemDisk`.
@@ -297,7 +328,7 @@ Usuario elige carpetas origen + disco destino
          ↓
 [main.js] Manifiesto, índice y log con escritura atómica
          ↓
-[app.js] Si se pidió, bloquea el disco al terminar
+[app.js] Si se pidió, cierra las copias cifradas al terminar
 ```
 
 ## Estructura del backup en el disco destino
@@ -314,6 +345,9 @@ E:\KopiaDesk_Backup\
     └── sources.json        ← ruta local por carpeta
 ```
 
+Cifrado, ver el README ("Cifrado de las copias"): `datos\xx\<hex>.kdc` y los
+mismos metadatos en `.kdc`, más `cifrado.json` y el programa para abrirlo sin la app.
+
 ---
 
 ## Notas de desarrollo
@@ -321,17 +355,19 @@ E:\KopiaDesk_Backup\
 - `npm run lint` comprueba la sintaxis de los archivos principales (`node --check`).
 - Los estilos van siempre en `renderer/styles.css`: la CSP (`style-src 'self'`)
   bloquea los atributos `style="..."` del HTML (por eso existen utilidades como `.mt-14`).
-- `npm test` corre los 113 tests con `node --test`; no requiere Electron. El test
-  del ayudante de PowerShell sólo corre en Windows.
+- `npm test` corre los 164 tests con `node --test`; no requiere Electron. Los de
+  PowerShell (cifrado cruzado, recuperar sin la app) sólo corren en Windows.
 - Con npm 11 o posterior el binario de Electron no se descarga solo: ejecutar una
   vez `node node_modules/electron/install.js`.
 - Compilar el instalador sin firma de código:
   `set CSC_IDENTITY_AUTO_DISCOVERY=false && npm run build` (en PowerShell:
   `$env:CSC_IDENTITY_AUTO_DISCOVERY="false"; npm run build`). Genera
-  `dist/Kopia Desk v2 Setup <versión>.exe`. El ayudante de BitLocker queda fuera
-  del `.asar` (`asarUnpack`) para que PowerShell pueda leerlo.
+  `dist/portable/KopiaDesk-Portable.exe` y `dist/Kopia Desk v3 Setup <versión>.exe`
+  (con la portable en `resources/portable/`). `eject-drive.ps1` y
+  `Recuperar-KopiaDesk.ps1` quedan fuera del `.asar` (`asarUnpack`) para que
+  PowerShell pueda leerlos y la app pueda copiar el segundo al disco.
 - Si electron-builder falla por `winCodeSign` y enlaces simbólicos, copiar el
   directorio extraído a
   `%LOCALAPPDATA%\electron-builder\Cache\winCodeSign\winCodeSign-2.6.0\`.
-- Las pruebas del ayudante de BitLocker contra discos reales necesitan
-  administrador; se hicieron con discos virtuales (`diskpart create vdisk`).
+- `lib/Recuperar-KopiaDesk.ps1` se guarda en UTF-8 con BOM y CRLF (PowerShell 5.1
+  necesita el BOM para las tildes).

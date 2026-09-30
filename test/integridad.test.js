@@ -27,8 +27,6 @@ const {
   ContentIndex,
   copyOneTask,
   fileSystemInfo,
-  parseBitLockerProtection,
-  isHomeEdition,
   startJournal,
   peekJournals,
   checkJournals,
@@ -497,7 +495,7 @@ test("scanDirectoryRecursive informa excluidos y enlaces (junctions) sin seguirl
   assert.deepEqual(report.skipped, [{ path: "enlace", reason: "enlace" }]);
 });
 
-// --- Sistema de archivos y BitLocker ---------------------------------------------
+// --- Sistema de archivos ---------------------------------------------
 
 test("fileSystemInfo: FAT32 limita a 4 GB y no tiene hardlinks; NTFS sin límite", () => {
   assert.equal(fileSystemInfo("FAT32").maxFileSize, FAT32_MAX_FILE_SIZE);
@@ -506,22 +504,6 @@ test("fileSystemInfo: FAT32 limita a 4 GB y no tiene hardlinks; NTFS sin límite
   assert.equal(fileSystemInfo("exFAT").journaled, false);
   assert.equal(fileSystemInfo("NTFS").supportsHardlinks, true);
   assert.equal(fileSystemInfo("NTFS").maxFileSize, null);
-});
-
-test("parseBitLockerProtection traduce los valores de la propiedad de shell", () => {
-  assert.equal(parseBitLockerProtection(1), "on");
-  assert.equal(parseBitLockerProtection(2), "off");
-  assert.equal(parseBitLockerProtection("3"), "encrypting");
-  assert.equal(parseBitLockerProtection(6), "locked");
-  assert.equal(parseBitLockerProtection(null), "unknown");
-  assert.equal(parseBitLockerProtection(99), "unknown");
-});
-
-test("isHomeEdition reconoce las variantes de Windows Home", () => {
-  assert.ok(isHomeEdition("Core"));
-  assert.ok(isHomeEdition("CoreSingleLanguage"));
-  assert.ok(!isHomeEdition("Professional"));
-  assert.ok(!isHomeEdition(null));
 });
 
 // --- Velocidad (fase 1): menos operaciones por archivo, misma seguridad ---------
