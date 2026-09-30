@@ -106,3 +106,20 @@ test("FAT32: el límite de 4 GB cuenta lo que añade el cifrado", async (t) => {
   await assert.rejects(core.copyOneTask(task, { masterKey: mk, maxFileSize: 1030 }), (e) => e.code === "FILE_TOO_LARGE");
   await core.copyOneTask(task, { masterKey: null, maxFileSize: 1030 });
 });
+
+test("repetir el backup de dos archivos ya enlazados no deja temporales (en Linux el rename no hacía nada)", async (t) => {
+  const { dir, src, dest, mk } = preparar();
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const data = crypto.randomBytes(5000);
+  fs.writeFileSync(path.join(src, "a"), data);
+  fs.writeFileSync(path.join(src, "b"), data);
+  const index = new core.ContentIndex();
+  for (let vuelta = 0; vuelta < 2; vuelta++) {
+    const ctx = { index, pendingWrites: new Map(), masterKey: mk, madeDirs: new Set() };
+    for (const n of ["a", "b"]) {
+      await core.copyOneTask({ srcPath: path.join(src, n), destRoot: dest, relativeDest: "KopiaDesk_Backup/datos/" + n + ".kdc", dedup: true }, ctx);
+    }
+  }
+  const datos = fs.readdirSync(path.join(dest, "KopiaDesk_Backup", "datos"));
+  assert.deepEqual(datos.sort(), ["a.kdc", "b.kdc"], "sin .kopia-tmp");
+});

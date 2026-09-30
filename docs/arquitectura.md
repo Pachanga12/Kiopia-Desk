@@ -39,7 +39,7 @@ Kopia-Desk/
 │
 ├── assets/Kopia_Desk_icon.png ← Icono de la app y del instalador
 │
-├── test/                      ← node --test (164 tests)
+├── test/                      ← node --test (167 tests)
 │   ├── core.test.js           ← Lógica base: rutas, exclusiones, escaneo, hash, journal
 │   ├── integridad.test.js     ← Problemas 1–5: copia atómica, dedup, escrituras atómicas
 │   ├── cifrado.test.js        ← Cifrado: caja, clave de recuperación, alteraciones; Node ↔ PowerShell
@@ -355,7 +355,7 @@ mismos metadatos en `.kdc`, más `cifrado.json` y el programa para abrirlo sin l
 - `npm run lint` comprueba la sintaxis de los archivos principales (`node --check`).
 - Los estilos van siempre en `renderer/styles.css`: la CSP (`style-src 'self'`)
   bloquea los atributos `style="..."` del HTML (por eso existen utilidades como `.mt-14`).
-- `npm test` corre los 164 tests con `node --test`; no requiere Electron. Los de
+- `npm test` corre los 167 tests con `node --test`; no requiere Electron. Los de
   PowerShell (cifrado cruzado, recuperar sin la app) sólo corren en Windows.
 - Con npm 11 o posterior el binario de Electron no se descarga solo: ejecutar una
   vez `node node_modules/electron/install.js`.

@@ -3,7 +3,7 @@
 [![CI](https://github.com/Pachanga12/Kopia-Desk/actions/workflows/ci.yml/badge.svg)](https://github.com/Pachanga12/Kopia-Desk/actions/workflows/ci.yml)
 ![Plataforma](https://img.shields.io/badge/plataforma-Windows%2010%2F11-0078D6?logo=windows&logoColor=white)
 ![Electron](https://img.shields.io/badge/Electron-43-47848F?logo=electron&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-166-brightgreen?logo=nodedotjs&logoColor=white)
+![Tests](https://img.shields.io/badge/tests-167-brightgreen?logo=nodedotjs&logoColor=white)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-blue)](LICENSE)
 
 Aplicación de escritorio para copias de seguridad incrementales en Windows. Permite respaldar carpetas como Imágenes, Documentos o Descargas a discos externos o USB y, si quieres, guardarlas **cifradas con una contraseña**: el contenido y también los nombres de archivos y carpetas. Las copias cifradas se abren en cualquier Windows 10/11 (también Home) con Kopia Desk o, sin ella, con el programa que queda en el propio disco.
