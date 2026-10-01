@@ -194,7 +194,7 @@ window.KD_VERSIONES = [
   },
   {
     "v": "V4.0",
-    "nombre": "La actual",
+    "nombre": "Nuevo nombre",
     "fecha": "30-09-2026",
     "tipo": "App de escritorio · Electron 43",
     "resumen": "Kopia Desk pasa a llamarse Kiopia Desk, para no confundirse con Kopia (kopia.io).",
@@ -202,6 +202,17 @@ window.KD_VERSIONES = [
       "Nuevo nombre en la app, el instalador, la versión portable, la página web y GitHub (Pachanga12/Kiopia-Desk).",
       "En la USB, la carpeta del backup pasa a KiopiaDesk_Backup, con Abrir-KiopiaDesk.cmd, Recuperar-KiopiaDesk.ps1 y Kiopia Desk (portable).exe.",
       "Al instalarla sobre la v3 conserva la configuración y cambia el acceso directo del escritorio por el nuevo."
+    ]
+  }
+,
+  {
+    "v": "V4.0.1",
+    "nombre": "La actual",
+    "fecha": "30-09-2026",
+    "tipo": "App de escritorio · Electron 43",
+    "resumen": "Retoque: los botones del disco ya no se pierden justo después de un backup.",
+    "puntos": [
+      "Al terminar un backup la app vuelve a leer los discos (para poner al día el espacio libre). Si en ese segundo se pulsaba «Cerrar ahora», «Abrir» o «Cambiar contraseña…», no pasaba nada; ahora espera a que termine y lo hace."
     ]
   }
 ];

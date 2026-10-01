@@ -1361,6 +1361,16 @@ async function loadQuickFolders() {
 // volvió a elegir el disco.
 let drivesLoading = 0;
 
+// Mientras se relee la lista de discos (p. ej. justo después de un backup) no hay
+// destino durante un momento: los botones del disco esperan a que termine en
+// vez de no hacer nada.
+async function waitDrivesSettled(maxMs = 15000) {
+  const t0 = Date.now();
+  while ((drivesLoading > 0 || drivesRefreshRunning) && Date.now() - t0 < maxMs) {
+    await new Promise((r) => setTimeout(r, 100));
+  }
+}
+
 async function loadDrives() {
   drivesLoading++;
   try {
@@ -1910,6 +1920,7 @@ async function copyRecoveryKey() {
 // Abre las copias cifradas del disco elegido con la contraseña o la clave de
 // recuperación. La usan el panel del disco y las pestañas Comparar y Restaurar.
 async function openBackupWith(secret) {
+  await waitDrivesSettled();
   if (!state.destination) return { ok: false, error: "No hay ningún disco elegido." };
   const root = state.destination.root;
   const result = await withEncryptionJob("Unlock", "unlocking", (r) => window.kopiaAPI.cryptoUnlock(r, secret));
@@ -1921,6 +1932,7 @@ async function openBackupWith(secret) {
 }
 
 async function unlockCurrentDrive() {
+  await waitDrivesSettled();
   if (!state.destination) return;
   const secret = els.unlockPassword.value;
   if (!secret) {
@@ -1938,6 +1950,7 @@ async function unlockCurrentDrive() {
 }
 
 async function lockCurrentDrive() {
+  await waitDrivesSettled();
   if (!state.destination) return false;
   const root = state.destination.root;
   try {
@@ -2088,7 +2101,9 @@ els.lockBtn.addEventListener("click", () => {
 
 els.lockAfterToggle.addEventListener("change", saveState);
 
-els.changePasswordBtn.addEventListener("click", () => {
+els.changePasswordBtn.addEventListener("click", async () => {
+  if (state.busy) return;
+  await waitDrivesSettled();
   if (state.busy || !state.destination) return;
   closeChangePasswordDialog();
   els.changePasswordDialog.showModal();
