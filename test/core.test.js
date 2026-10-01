@@ -52,18 +52,18 @@ test("safeName reemplaza barras pero no las considera vacías", () => {
 // --- safePath ----------------------------------------------------------------
 
 test("safePath resuelve una ruta relativa dentro del root", () => {
-  const root = path.resolve("D:/KopiaDesk_Backup");
+  const root = path.resolve("D:/KiopiaDesk_Backup");
   const resolved = safePath(root, "Fotos/img.jpg");
   assert.equal(resolved, path.join(root, "Fotos", "img.jpg"));
 });
 
 test("safePath permite que la ruta resuelta sea exactamente el root", () => {
-  const root = path.resolve("D:/KopiaDesk_Backup");
+  const root = path.resolve("D:/KiopiaDesk_Backup");
   assert.equal(safePath(root, "."), path.resolve(root));
 });
 
 test("safePath rechaza un path traversal fuera del root", () => {
-  const root = path.resolve("D:/KopiaDesk_Backup");
+  const root = path.resolve("D:/KiopiaDesk_Backup");
   assert.throws(() => safePath(root, "../../Windows/System32"), /fuera del disco destino/);
 });
 
@@ -74,22 +74,22 @@ test("safePath rechaza una carpeta hermana con el mismo prefijo de nombre", () =
 });
 
 test("safePath rechaza rutas con bytes nulos", () => {
-  const root = path.resolve("D:/KopiaDesk_Backup");
+  const root = path.resolve("D:/KiopiaDesk_Backup");
   assert.throws(() => safePath(root, "archivo\0.txt"), /caracteres nulos/);
 });
 
 test("safePath rechaza rutas vacías o no-string", () => {
-  const root = path.resolve("D:/KopiaDesk_Backup");
+  const root = path.resolve("D:/KiopiaDesk_Backup");
   assert.throws(() => safePath(root, ""));
   assert.throws(() => safePath(root, null));
 });
 
 // --- safeBackupPath ------------------------------------------------------
 
-test("safeBackupPath acepta rutas dentro de <root>/KopiaDesk_Backup", () => {
+test("safeBackupPath acepta rutas dentro de <root>/KiopiaDesk_Backup", () => {
   const driveRoot = path.resolve("D:/");
-  const resolved = safeBackupPath(driveRoot, "KopiaDesk_Backup/Fotos/img.jpg");
-  assert.equal(resolved, path.join(driveRoot, "KopiaDesk_Backup", "Fotos", "img.jpg"));
+  const resolved = safeBackupPath(driveRoot, "KiopiaDesk_Backup/Fotos/img.jpg");
+  assert.equal(resolved, path.join(driveRoot, "KiopiaDesk_Backup", "Fotos", "img.jpg"));
 });
 
 test("safeBackupPath rechaza rutas fuera de la carpeta de backup aunque sigan dentro del disco", () => {
@@ -111,7 +111,7 @@ test("safeBackupPath rechaza ../.. dentro del mismo disco (safePath sola no lo d
   const driveRoot = path.resolve("D:/");
   // "../../Windows/System32" desde la raíz del disco resuelve a "D:\Windows\System32":
   // sigue estando dentro de "D:\", así que safePath() por sí sola lo dejaría pasar.
-  // safeBackupPath lo rechaza porque no está dentro de "D:\KopiaDesk_Backup\".
+  // safeBackupPath lo rechaza porque no está dentro de "D:\KiopiaDesk_Backup\".
   assert.throws(() => safeBackupPath(driveRoot, "../../Windows/System32"), /fuera de la carpeta de backup/);
 });
 

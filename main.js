@@ -49,7 +49,7 @@ const {
 } = require("./lib/core.js");
 const almacen = require("./lib/almacen.js");
 
-const METADATA_DIR = ".kopia-data";
+const METADATA_DIR = ".kiopia-data";
 const BACKUP_CONCURRENCY = 3;
 // content-index.json también se guarda cada tantos archivos copiados, no sólo
 // al final del lote: si el proceso se corta a mitad de un backup grande, los
@@ -113,8 +113,8 @@ function createWindow() {
     minWidth: Math.min(960, width),
     minHeight: Math.min(600, height),
     center: true,
-    title: "Kopia Desk v3",
-    icon: path.join(__dirname, "assets", "Kopia_Desk_icon.png"),
+    title: "Kiopia Desk v4",
+    icon: path.join(__dirname, "assets", "Kiopia_Desk_icon.png"),
     // Fondo mientras carga la interfaz: el del tema de Windows (colores --bg de
     // styles.css), para que no haya un destello blanco en modo oscuro ni
     // oscuro en modo claro.
@@ -183,12 +183,12 @@ function showMainWindow() {
 
 function ensureTray() {
   if (tray) return tray;
-  const icon = nativeImage.createFromPath(path.join(__dirname, "assets", "Kopia_Desk_icon.png")).resize({ width: 16, height: 16 });
+  const icon = nativeImage.createFromPath(path.join(__dirname, "assets", "Kiopia_Desk_icon.png")).resize({ width: 16, height: 16 });
   tray = new Tray(icon);
-  tray.setToolTip("Kopia Desk v3");
+  tray.setToolTip("Kiopia Desk v4");
   tray.setContextMenu(
     Menu.buildFromTemplate([
-      { label: "Abrir Kopia Desk", click: showMainWindow },
+      { label: "Abrir Kiopia Desk", click: showMainWindow },
       { type: "separator" },
       { label: "Salir", click: () => quitApp() },
     ])
@@ -203,9 +203,9 @@ function hideToBackground(firstTime) {
   mainWindow.hide();
   if (firstTime && Notification.isSupported()) {
     new Notification({
-      title: "Kopia Desk sigue abierta",
+      title: "Kiopia Desk sigue abierta",
       body: "Está en segundo plano, junto al reloj de Windows. Haz clic en su icono para volver.",
-      icon: path.join(__dirname, "assets", "Kopia_Desk_icon.png"),
+      icon: path.join(__dirname, "assets", "Kiopia_Desk_icon.png"),
     }).show();
   }
 }
@@ -237,12 +237,12 @@ async function onWindowClose(event) {
   if (action === "ask") {
     const { response, checkboxChecked } = await dialog.showMessageBox(mainWindow, {
       type: "question",
-      title: "Cerrar Kopia Desk",
-      message: "¿Cerrar Kopia Desk o dejarla en segundo plano?",
+      title: "Cerrar Kiopia Desk",
+      message: "¿Cerrar Kiopia Desk o dejarla en segundo plano?",
       detail: rendererBusy
         ? "Hay una copia en curso. En segundo plano sigue copiando. Si la cierras, la copia se detiene: lo ya copiado queda guardado y verificado, y el resto se copia en el próximo backup."
         : "En segundo plano sigue abierta junto al reloj de Windows (haz clic en su icono para volver).",
-      buttons: ["Seguir en segundo plano", "Cerrar Kopia Desk", "Cancelar"],
+      buttons: ["Seguir en segundo plano", "Cerrar Kiopia Desk", "Cancelar"],
       defaultId: 0,
       cancelId: 2,
       noLink: true,
@@ -267,7 +267,7 @@ async function onWindowClose(event) {
 ipcMain.handle("app:busy", (_event, busy) => {
   rendererBusy = !!busy;
   if (!rendererBusy) cancelAllCopies = false;
-  if (tray) tray.setToolTip(rendererBusy ? "Kopia Desk v3 — trabajando…" : "Kopia Desk v3");
+  if (tray) tray.setToolTip(rendererBusy ? "Kiopia Desk v4 — trabajando…" : "Kiopia Desk v4");
 });
 
 // Aviso de Windows (sólo si la ventana no está a la vista): p. ej. copia terminada.
@@ -277,7 +277,7 @@ ipcMain.handle("app:notify", (_event, title, body) => {
   const n = new Notification({
     title: String(title).slice(0, 120),
     body: String(body).slice(0, 400),
-    icon: path.join(__dirname, "assets", "Kopia_Desk_icon.png"),
+    icon: path.join(__dirname, "assets", "Kiopia_Desk_icon.png"),
   });
   n.on("click", showMainWindow);
   n.show();
@@ -357,7 +357,7 @@ function watchDriveChanges(win) {
   });
 }
 
-// Instancia única: dos Kopia Desk abiertas a la vez escribirían sobre los
+// Instancia única: dos Kiopia Desk abiertas a la vez escribirían sobre los
 // mismos manifiestos, índice y configuración y podrían pisarse. Si ya hay una,
 // esta se cierra y se trae al frente la ventana existente.
 // Hasta la v2 el ayudante de BitLocker dejaba en los datos de la app archivos
@@ -412,7 +412,7 @@ ipcMain.handle("window:is-maximized", () => mainWindow?.isMaximized() ?? false);
 //   - carpetas de origen elegidas por diálogo, accesos rápidos o guardadas en
 //     la configuración (que sólo se guarda con orígenes ya permitidos);
 //   - carpetas de restauración elegidas por diálogo;
-//   - rutas del backup dentro de <disco>\KopiaDesk_Backup.
+//   - rutas del backup dentro de <disco>\KiopiaDesk_Backup.
 
 const allowed = {
   destRoots: new Set(), // "E:\\" en mayúsculas
@@ -520,8 +520,8 @@ function assertInsideBackup(p) {
   throw new Error("Ruta fuera del backup: " + p);
 }
 
-// Ruta relativa al disco destino que debe quedar bajo KopiaDesk_Backup (y,
-// opcionalmente, bajo una subcarpeta concreta como .kopia-data/versions).
+// Ruta relativa al disco destino que debe quedar bajo KiopiaDesk_Backup (y,
+// opcionalmente, bajo una subcarpeta concreta como .kiopia-data/versions).
 function assertBackupRelative(destKey, relativeDest, subdir) {
   const target = safePath(destKey, relativeDest);
   const base = subdir ? path.join(backupRootOf(destKey), subdir) : backupRootOf(destKey);
@@ -691,7 +691,7 @@ function recoveryScriptSource() {
 ipcMain.handle("crypto:status", async (_event, destRoot) => {
   const key = await assertDestRoot(destRoot);
   const encrypted = almacen.isEncrypted(key);
-  // Cada vez que se elige (o vuelve) el disco: si Abrir-KopiaDesk.cmd o el
+  // Cada vez que se elige (o vuelve) el disco: si Abrir-KiopiaDesk.cmd o el
   // script se borraron sin querer, o son de una versión vieja, se reponen.
   if (encrypted) {
     try {
@@ -948,7 +948,7 @@ ipcMain.handle("drive:eject", async (_event, driveRoot, volumeId) => {
   if (!check.ok) {
     throw new Error(
       check.code === "system-disk"
-        ? `${key[0]}: está en el disco del sistema: Kopia Desk no lo expulsa.`
+        ? `${key[0]}: está en el disco del sistema: Kiopia Desk no lo expulsa.`
         : check.error
     );
   }
@@ -1089,7 +1089,7 @@ ipcMain.handle("backup:copy-files", async (event, tasks, options = {}) => {
 // Guarda la versión ANTERIOR de cada archivo cambiado: se llama antes de
 // sobrescribir el backup, comprimiendo el archivo que está por reemplazarse.
 // Igual que backup:copy-files, se planifica en el journal: sin esto, un corte
-// a mitad de escribir una versión dejaba un ".kopia-tmp" que journal:peek/
+// a mitad de escribir una versión dejaba un ".kiopia-tmp" que journal:peek/
 // journal:check nunca veían (no está en la carpeta de backup normal) y
 // quedaba huérfano para siempre.
 ipcMain.handle("backup:copy-versions", async (event, tasks, options = {}) => {
@@ -1202,11 +1202,11 @@ ipcMain.handle("backup:last-run", async (_event, destRoot) => {
   return summarizeLastBackup(path.join(metadataDir(key), "logs"));
 });
 
-// --- Kopia Desk portable en el disco de backup ---------------------------------
+// --- Kiopia Desk portable en el disco de backup ---------------------------------
 // La versión portable viaja dentro del instalador (scripts/build.js) y se copia
 // al disco al terminar un backup, para abrir las copias en otro PC sin instalar
 // nada. Si la app ya se está ejecutando como portable, se copia a sí misma.
-const PORTABLE_BUILD_NAME = "KopiaDesk-Portable.exe";
+const PORTABLE_BUILD_NAME = "KiopiaDesk-Portable.exe";
 
 function portableSource() {
   const running = process.env.PORTABLE_EXECUTABLE_FILE;

@@ -7,7 +7,7 @@
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; form-action 'none'"
     />
-    <title>Kopia Desk v3</title>
+    <title>Kiopia Desk v4</title>
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
@@ -15,8 +15,8 @@
     <div class="brand-stripe"></div>
     <header class="titlebar" id="titlebar">
       <div class="tb-brand">
-        <span class="logo-badge"><img src="../assets/Kopia_Desk_icon.png" alt="" /></span>
-        <span>Kopia Desk <small class="version-tag">V3</small></span>
+        <span class="logo-badge"><img src="../assets/Kiopia_Desk_icon.png" alt="" /></span>
+        <span>Kiopia Desk <small class="version-tag">V4</small></span>
       </div>
       <div class="tb-controls">
         <button id="themeToggle" class="tb-btn theme-toggle" type="button" title="Cambiar tema" aria-label="Cambiar tema">
@@ -362,7 +362,7 @@
                   </div>
                 </div>
 
-                <!-- Cifrado de las copias (propio de Kopia Desk, v3): activarlo con
+                <!-- Cifrado de las copias (propio de Kiopia Desk, v3): activarlo con
                      una contraseña, abrir un backup cifrado, cerrarlo y cambiar la
                      contraseña. Funciona en cualquier Windows y en cualquier disco
                      (también FAT32 y exFAT); no cifra el disco entero, sólo las copias.
@@ -402,7 +402,7 @@
                     </div>
                     <p id="encPasswordStrength" class="encrypt-strength" aria-live="polite"></p>
                     <p class="encrypt-password-hint">
-                      Kopia Desk la pedirá cada vez que abras este disco para copiar o restaurar. Si la olvidas, solo
+                      Kiopia Desk la pedirá cada vez que abras este disco para copiar o restaurar. Si la olvidas, solo
                       la clave de recuperación abre las copias.
                     </p>
                   </div>
@@ -589,16 +589,16 @@
     <dialog id="encryptDialog" class="kd-dialog" aria-labelledby="encryptDialogTitle">
       <h2 id="encryptDialogTitle">Cifrar las copias en <span id="encryptDialogDrive"></span></h2>
       <p>
-        Desde ahora, todo lo que Kopia Desk copie en este disco se guardará cifrado (AES-256) con la contraseña que
+        Desde ahora, todo lo que Kiopia Desk copie en este disco se guardará cifrado (AES-256) con la contraseña que
         escribiste: el contenido de los archivos y también sus nombres y carpetas. Sin la contraseña, nadie puede ver
         qué hay en el backup.
       </p>
       <ol class="kd-steps">
-        <li>Kopia Desk te mostrará una <strong>clave de recuperación</strong>. Guárdala <strong>fuera de este disco</strong>
+        <li>Kiopia Desk te mostrará una <strong>clave de recuperación</strong>. Guárdala <strong>fuera de este disco</strong>
           (en papel o en otro equipo): es la única forma de abrir las copias si olvidas la contraseña.</li>
-        <li>Cada vez que elijas este disco, Kopia Desk te pedirá la contraseña para copiar o restaurar.</li>
-        <li>En el disco quedará <strong>Recuperar-KopiaDesk.ps1</strong>: con él recuperas los archivos en cualquier
-          Windows aunque no tengas Kopia Desk.</li>
+        <li>Cada vez que elijas este disco, Kiopia Desk te pedirá la contraseña para copiar o restaurar.</li>
+        <li>En el disco quedará <strong>Recuperar-KiopiaDesk.ps1</strong>: con él recuperas los archivos en cualquier
+          Windows aunque no tengas Kiopia Desk.</li>
       </ol>
       <p class="kd-warning">
         Si pierdes la contraseña y la clave de recuperación, las copias no se pueden recuperar de ninguna forma.

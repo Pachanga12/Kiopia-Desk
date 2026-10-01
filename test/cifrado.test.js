@@ -1,7 +1,7 @@
 "use strict";
 
 // Cifrado propio (lib/cifrado.js) y su contraparte sin la app
-// (lib/Recuperar-KopiaDesk.ps1): tienen que entenderse byte a byte.
+// (lib/Recuperar-KiopiaDesk.ps1): tienen que entenderse byte a byte.
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
@@ -13,7 +13,7 @@ const { execFileSync } = require("child_process");
 const c = require("../lib/cifrado.js");
 
 const soloWindows = { skip: process.platform !== "win32" && "requiere Windows (PowerShell)" };
-const PS = path.join(__dirname, "..", "lib", "Recuperar-KopiaDesk.ps1");
+const PS = path.join(__dirname, "..", "lib", "Recuperar-KiopiaDesk.ps1");
 // Vueltas bajas en los tests de Node (rápidos); la prueba con PowerShell usa las reales.
 const RAPIDO = { iterations: 1000 };
 

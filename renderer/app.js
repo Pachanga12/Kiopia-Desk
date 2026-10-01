@@ -1,6 +1,6 @@
 "use strict";
 
-const BACKUP_ROOT = "KopiaDesk_Backup";
+const BACKUP_ROOT = "KiopiaDesk_Backup";
 const MAX_RENDERED_FILES = 50;
 const SPACE_SAFETY_MARGIN = 1.05; // exige 5% extra de espacio libre sobre lo calculado
 const THEME_STORAGE_KEY = "kopiaDeskTheme";
@@ -207,7 +207,7 @@ window.kopiaAPI.onProgress((data) => {
     versions: "Guardando versiones anteriores...",
     "restore-scan": "Comparando backup vs PC...",
     restore: "Restaurando archivos...",
-    portable: "Guardando Kopia Desk portable en la USB (sólo la primera vez o al actualizarla)...",
+    portable: "Guardando Kiopia Desk portable en la USB (sólo la primera vez o al actualizarla)...",
   };
   showProgress(labels[data.phase] || data.phase, data.current, data.total, data.file);
   if (state.timing && (data.phase === "backup" || data.phase === "restore" || data.phase === "versions")) {
@@ -282,7 +282,7 @@ window.kopiaAPI.onStoppingForQuit(() => {
     els.stopCopyBtn.disabled = true;
     els.stopCopyBtn.querySelector("span").textContent = "Cerrando…";
   }
-  log("Cerrando Kopia Desk: se detiene la copia (termina y verifica el archivo en curso) y luego se cierra.");
+  log("Cerrando Kiopia Desk: se detiene la copia (termina y verifica el archivo en curso) y luego se cierra.");
 });
 
 // Devuelve { bytes, seconds } de la copia que termina.
@@ -1147,15 +1147,15 @@ const TUTORIAL_STEPS = [
     title: "2. Elige dónde guardarlo",
     text:
       "Conecta una USB o un disco externo y elígelo aquí. Si lo desconectas y lo vuelves a conectar, " +
-      "Kopia Desk lo reconoce solo, aunque Windows le cambie la letra.",
+      "Kiopia Desk lo reconoce solo, aunque Windows le cambie la letra.",
   },
   {
     target: () => (els.encryptionPanel.hidden ? els.destinationSelect.closest(".card") : els.encryptionPanel),
     title: "3. Cifra las copias (opcional)",
     text:
       "Con una contraseña, las copias se guardan cifradas: sin ella nadie puede ver tus archivos ni sus nombres. " +
-      "Guarda la clave de recuperación que te mostrará. En la USB queda «Abrir-KopiaDesk» para ver tus archivos " +
-      "en cualquier Windows, aunque no tenga Kopia Desk.",
+      "Guarda la clave de recuperación que te mostrará. En la USB queda «Abrir-KiopiaDesk» para ver tus archivos " +
+      "en cualquier Windows, aunque no tenga Kiopia Desk.",
   },
   {
     target: ".summary-card",
@@ -1604,7 +1604,7 @@ async function selectDestination() {
   saveState();
 }
 
-// --- Cifrado de las copias (propio de Kopia Desk, v3) ---------------------------
+// --- Cifrado de las copias (propio de Kiopia Desk, v3) ---------------------------
 // Se cifran las copias, no el disco: el contenido y también los nombres de
 // archivos y carpetas (AES-256, ver lib/cifrado.js y lib/almacen.js). Funciona
 // en cualquier Windows y en cualquier disco, también FAT32 y exFAT.
@@ -1682,12 +1682,12 @@ function setPasswordVisible(btn, visible) {
 }
 
 const ENCRYPTION_TEXT = {
-  open: "Copias cifradas y abiertas: lo que copies se guarda cifrado, con sus nombres. Al cerrar Kopia Desk se vuelve a pedir la contraseña.",
+  open: "Copias cifradas y abiertas: lo que copies se guarda cifrado, con sus nombres. Al cerrar Kiopia Desk se vuelve a pedir la contraseña.",
   locked: "Las copias de este disco están cifradas. Escribe la contraseña (o la clave de recuperación) para copiar o restaurar.",
   off: "Las copias en este disco NO están cifradas: si se pierde, cualquiera puede ver tus archivos y sus nombres. Cifrarlas es opcional.",
   plain:
     "Las copias en este disco no están cifradas. Para tener copias cifradas usa otro disco (o uno vacío): " +
-    "Kopia Desk no mezcla copias cifradas y sin cifrar en el mismo disco.",
+    "Kiopia Desk no mezcla copias cifradas y sin cifrar en el mismo disco.",
   unknown: "No se pudo comprobar si las copias de este disco están cifradas.",
 };
 
@@ -2585,7 +2585,7 @@ async function backupAll() {
         if (els.versioningToggle.checked && item.previous) {
           const versionRelative =
             BACKUP_ROOT +
-            "/.kopia-data/versions/" +
+            "/.kiopia-data/versions/" +
             stamp +
             "/" +
             safeName(comparison.sourceName) +
@@ -2736,23 +2736,23 @@ async function backupAll() {
   }
 }
 
-// Al terminar un backup, deja en el disco Kopia Desk portable (si falta o es de
+// Al terminar un backup, deja en el disco Kiopia Desk portable (si falta o es de
 // otra versión) para abrir las copias en otro PC sin instalar nada.
 async function copyPortableToDisk() {
   if (!state.destination) return;
   try {
     const r = await window.kopiaAPI.ensurePortable(state.destination.root, state.destination.volumeId);
     if (r.copied) {
-      log("Kopia Desk portable guardada en el disco (KopiaDesk_Backup\\Kopia Desk (portable).exe): en otro PC se abre sin instalar nada.");
+      log("Kiopia Desk portable guardada en el disco (KiopiaDesk_Backup\\Kiopia Desk (portable).exe): en otro PC se abre sin instalar nada.");
     } else if (r.reason === "sin-espacio") {
-      log("No se guardó Kopia Desk portable en el disco: no queda espacio (" + formatBytes(r.size) + ").");
+      log("No se guardó Kiopia Desk portable en el disco: no queda espacio (" + formatBytes(r.size) + ").");
     } else if (r.reason === "en-uso") {
-      log("Kopia Desk portable del disco está abierta: no se actualizó (se hará en el próximo backup).");
+      log("Kiopia Desk portable del disco está abierta: no se actualizó (se hará en el próximo backup).");
     } else if (r.reason === "error") {
-      log("No se pudo guardar Kopia Desk portable en el disco: " + r.error);
+      log("No se pudo guardar Kiopia Desk portable en el disco: " + r.error);
     }
   } catch (error) {
-    log("No se pudo guardar Kopia Desk portable en el disco: " + error.message);
+    log("No se pudo guardar Kiopia Desk portable en el disco: " + error.message);
   }
 }
 
@@ -3633,4 +3633,4 @@ loadState().then(() => {
   // Primera vez: el tutorial, con la ventana ya dibujada.
   if (!state.tutorialDone) setTimeout(startTutorial, 600);
 });
-log("Kopia Desk v3 iniciado.");
+log("Kiopia Desk v4 iniciado.");

@@ -1,4 +1,4 @@
-/* Kopia Desk v3 — página del producto. Oscura como la app. */
+/* Kiopia Desk v4 — página del producto. Oscura como la app. */
 
 :root {
   --fondo: #070b14;
@@ -163,7 +163,7 @@ b {
 
 /* --- Animación de entrada (una vez por visita) -------------------------------------
    0,0 s  resplandor  ·  0,1 s logo (gira y crece)  ·  0,45 s ondas de luz
-   0,55 s «Kopia Desk» se escribe  ·  1,1 s «V3»  ·  1,0 s lema  ·  barra 0 → 1,7 s
+   0,55 s «Kiopia Desk» se escribe  ·  1,1 s «V4»  ·  1,0 s lema  ·  barra 0 → 1,7 s
    ~2 s   se desvanece (app.js pone .intro-saliendo) y entra la página. */
 
 .intro {

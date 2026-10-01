@@ -1,8 +1,8 @@
-# Kopia Desk v3 — Arquitectura del proyecto
+# Kiopia Desk v4 — Arquitectura del proyecto
 
 ## Qué hace la aplicación
 
-Kopia Desk v3 es una aplicación de escritorio para Windows que hace copias de
+Kiopia Desk v4 es una aplicación de escritorio para Windows que hace copias de
 seguridad incrementales de carpetas locales hacia discos externos o USB. Compara
 el estado actual de cada carpeta contra el manifiesto del último backup, copia
 sólo lo que cambió (con copia atómica y verificada por SHA-256), permite restaurar
@@ -15,7 +15,7 @@ o, sin ella, con el programa que queda en el propio disco.
 ## Mapa del proyecto
 
 ```
-Kopia-Desk/
+Kiopia-Desk/
 ├── main.js                    ← Proceso principal de Electron: único que toca disco y sistema
 ├── preload.js                 ← Puente seguro: lista exacta de lo que la interfaz puede pedir
 ├── package.json               ← Nombre, versión, scripts y configuración del instalador
@@ -26,7 +26,7 @@ Kopia-Desk/
 │   │                            verificada (también cifrada), dedup, journal, discos
 │   ├── cifrado.js             ← Cifrado propio (v3): caja de claves, archivos, nombres opacos
 │   ├── almacen.js             ← Dónde y cómo se guarda cada cosa en un disco cifrado
-│   ├── Recuperar-KopiaDesk.ps1 ← Se copia al disco: abre las copias cifradas SIN la app
+│   ├── Recuperar-KiopiaDesk.ps1 ← Se copia al disco: abre las copias cifradas SIN la app
 │   │                            (ventana «Abrir» y recuperación por consola)
 │   └── eject-drive.ps1        ← Expulsar el disco (sin elevar)
 │
@@ -37,7 +37,7 @@ Kopia-Desk/
 │   ├── app.js                 ← Lógica de la interfaz
 │   └── styles.css             ← Estilos ("Fluent Obsidian", tema claro/oscuro)
 │
-├── assets/Kopia_Desk_icon.png ← Icono de la app y del instalador
+├── assets/Kiopia_Desk_icon.png ← Icono de la app y del instalador
 │
 ├── test/                      ← node --test (167 tests)
 │   ├── core.test.js           ← Lógica base: rutas, exclusiones, escaneo, hash, journal
@@ -73,7 +73,7 @@ Kopia-Desk/
 3. **`renderer/app.js`** corre en la ventana, en sandbox, sin Node.js.
 4. **`lib/core.js`** tiene la lógica que se puede probar sin Electron; `main.js`
    sólo la conecta a canales IPC.
-5. **`lib/cifrado.js`** y **`lib/Recuperar-KopiaDesk.ps1`** tienen que entenderse
+5. **`lib/cifrado.js`** y **`lib/Recuperar-KiopiaDesk.ps1`** tienen que entenderse
    byte a byte: cualquier cambio de formato se hace en los dos (los tests lo
    comprueban). Nada de la app corre como administrador.
 
@@ -99,9 +99,9 @@ Kopia-Desk/
    - orígenes: sólo carpetas elegidas por diálogo, accesos rápidos o guardadas en
      la configuración (que a su vez sólo guarda orígenes autorizados);
    - restauración: carpeta destino elegida por diálogo y archivos de origen
-     dentro de `<disco>\KopiaDesk_Backup`;
-   - destinos de copia dentro de `KopiaDesk_Backup` y fuera de `.kopia-data`;
-     versiones sólo dentro de `.kopia-data\versions`;
+     dentro de `<disco>\KiopiaDesk_Backup`;
+   - destinos de copia dentro de `KiopiaDesk_Backup` y fuera de `.kiopia-data`;
+     versiones sólo dentro de `.kiopia-data\versions`;
    - rutas de `sources.json` del disco: sólo para listar en "Comparar".
    - identidad del disco destino: `backup:copy-files`/`backup:copy-versions`
      reciben opcionalmente `options.destVolumeId` (el `volumeId` que el
@@ -128,16 +128,16 @@ Kopia-Desk/
 5. **Versiones** (`backup:copy-versions`): la versión anterior se comprime con
    gzip a un temporal y se renombra (`writeVersionAtomic`, en `lib/core.js`),
    planificada en el journal igual que `backup:copy-files` (con la ruta real
-   final bajo `.kopia-data/versions/`, no la ruta de origen). Antes no pasaba
+   final bajo `.kiopia-data/versions/`, no la ruta de origen). Antes no pasaba
    por el journal: un corte a mitad de comprimir una versión dejaba un
-   `.kopia-tmp` que `journal:peek`/`journal:check` nunca veían (sólo miran la
+   `.kiopia-tmp` que `journal:peek`/`journal:check` nunca veían (sólo miran la
    carpeta de journal), y quedaba huérfano para siempre.
 6. **Restauración**: misma copia verificada que el backup.
-7. **Backup cifrado (v3)**: si el disco tiene `.kopia-data\cifrado.json`, cada
+7. **Backup cifrado (v3)**: si el disco tiene `.kiopia-data\cifrado.json`, cada
    manejador pide la clave con `destCryptoKey` (null = sin cifrar; error
    `CRYPTO_LOCKED` si está cerrado). La clave sólo vive en memoria
    (`unlockedKeys`), atada al número de serie del volumen. La interfaz sigue
-   pidiendo rutas lógicas (`KopiaDesk_Backup/<carpeta>/<ruta>`) y `main.js` las
+   pidiendo rutas lógicas (`KiopiaDesk_Backup/<carpeta>/<ruta>`) y `main.js` las
    traduce a nombres opacos en `datos\` con `lib/almacen.js`; manifiestos,
    índice, rutas recordadas e informes se guardan cifrados. Las versiones de un
    disco cifrado se enlazan (o copian) ya cifradas, sin gzip, con un
@@ -167,7 +167,7 @@ Kopia-Desk/
 | `backup:copy-versions` | Versiones anteriores comprimidas, con journal |
 | `log:save` | Log JSON de la operación (copiados, fallidos, omitidos y la marca `run` de la corrida) |
 | `backup:last-run` | Último backup del disco (fecha, carpetas, copiados, fallidos), leído de esos logs |
-| `backup:open-folder` | Abre `KopiaDesk_Backup` del disco en el Explorador |
+| `backup:open-folder` | Abre `KiopiaDesk_Backup` del disco en el Explorador |
 | `copy:cancel` | Detener: marca el `opId` de la copia; backup, versiones y restaurar dejan de empezar archivos nuevos (el que está en curso termina) y devuelven `stopped` |
 | `progress` (evento) | Además de `current`/`total`, `bytes` copiados en la llamada (tiempo restante y velocidad); fases `backup`, `versions`, `restore` |
 | `app:busy` / `app:notify` | La interfaz avisa si está copiando (para cerrar bien) y pide un aviso de Windows si la ventana no está a la vista |
@@ -196,7 +196,7 @@ Kopia-Desk/
 - **Último backup**: `summarizeLastBackup` junta los logs de la corrida más
   reciente (misma marca `run`; un log viejo sin ella cuenta solo).
 - **Copia**: `copyFileVerified` con dos modos. **Backup** (`native`): copia nativa
-  a `.kopia-tmp` (CopyFileW, que respeta los archivos abiertos en exclusiva por
+  a `.kiopia-tmp` (CopyFileW, que respeta los archivos abiertos en exclusiva por
   otro programa), `fsync`, SHA-256 del origen y del temporal en paralelo.
   **Restaurar** (`single`): una sola lectura del origen en bloques de 8 MB,
   calculando el SHA-256 mientras se escribe, y relectura del temporal. En los
@@ -236,7 +236,7 @@ Kopia-Desk/
 - **Expulsar**: `ejectDrive` lanza `lib/eject-drive.ps1` (sin elevar) y
   `parseEjectOutput` traduce el resultado y los vetos de Windows.
 - **Journal**: `startJournal` (v2), `peekJournals`, `checkJournals` (en v2 sólo
-  borra `.kopia-tmp`).
+  borra `.kiopia-tmp`).
 
 ## `lib/cifrado.js` y `lib/almacen.js`
 
@@ -250,14 +250,14 @@ Kopia-Desk/
 - **`almacen.js`**: rutas (`dataRelative`, `dataPath`, `versionRelative`),
   activar/abrir/cambiar contraseña, manifiestos `{ fuente, carpeta, archivos }`
   con `.prev.kdc`, rutas recordadas, índice, informes y el índice de versiones.
-  `writeRecoveryTools` copia `Recuperar-KopiaDesk.ps1`, `Abrir-KopiaDesk.cmd`
+  `writeRecoveryTools` copia `Recuperar-KiopiaDesk.ps1`, `Abrir-KiopiaDesk.cmd`
   y `LEEME-CIFRADO.txt` a la raíz del backup (al activar y al abrir).
 
-## `lib/Recuperar-KopiaDesk.ps1`
+## `lib/Recuperar-KiopiaDesk.ps1`
 
 Corre sin elevar en PowerShell 5.1, desde el disco de backup. `-Accion Abrir`
-(la de `Abrir-KopiaDesk.cmd`): ventana de contraseña y árbol de carpetas
-(WinForms) con **Ver** (descifra a `%TEMP%\KopiaDesk-*`, que se borra al cerrar)
+(la de `Abrir-KiopiaDesk.cmd`): ventana de contraseña y árbol de carpetas
+(WinForms) con **Ver** (descifra a `%TEMP%\KiopiaDesk-*`, que se borra al cerrar)
 y **Sacar…** (descifrado verificado a la carpeta elegida, sin pisar nada, con la
 fecha original, admite rutas largas y se puede detener). `-Accion Recuperar`:
 todo a una carpeta desde la consola (lo usan los tests). `-Accion Import`: sólo
@@ -322,7 +322,7 @@ Usuario elige carpetas origen + disco destino
 [app.js] Usuario acepta/omite; avisos de espacio, FAT32, cifrado y cambios sospechosos
          ↓
 [main.js] Valida tareas → journal → copyOneTask (dedup verificada o copia
-          verificada a .kopia-tmp + rename) → devuelve lo hecho con su SHA-256
+          verificada a .kiopia-tmp + rename) → devuelve lo hecho con su SHA-256
          ↓
 [app.js] Manifiesto nuevo sólo con lo verificado (+ fechas de los tocados)
          ↓
@@ -334,9 +334,9 @@ Usuario elige carpetas origen + disco destino
 ## Estructura del backup en el disco destino
 
 ```
-E:\KopiaDesk_Backup\
+E:\KiopiaDesk_Backup\
 ├── Fotos\                  ← archivos respaldados (normales, usables sin la app)
-└── .kopia-data\            ← oculta (+h +s)
+└── .kiopia-data\            ← oculta (+h +s)
     ├── manifests\          ← <carpeta>.json (con SHA-256) + <carpeta>.prev.json
     ├── versions\           ← versiones anteriores .gz
     ├── journal\            ← backups en curso (v2)
@@ -362,12 +362,12 @@ mismos metadatos en `.kdc`, más `cifrado.json` y el programa para abrirlo sin l
 - Compilar el instalador sin firma de código:
   `set CSC_IDENTITY_AUTO_DISCOVERY=false && npm run build` (en PowerShell:
   `$env:CSC_IDENTITY_AUTO_DISCOVERY="false"; npm run build`). Genera
-  `dist/portable/KopiaDesk-Portable.exe` y `dist/Kopia Desk v3 Setup <versión>.exe`
+  `dist/portable/KiopiaDesk-Portable.exe` y `dist/Kiopia Desk v4 Setup <versión>.exe`
   (con la portable en `resources/portable/`). `eject-drive.ps1` y
-  `Recuperar-KopiaDesk.ps1` quedan fuera del `.asar` (`asarUnpack`) para que
+  `Recuperar-KiopiaDesk.ps1` quedan fuera del `.asar` (`asarUnpack`) para que
   PowerShell pueda leerlos y la app pueda copiar el segundo al disco.
 - Si electron-builder falla por `winCodeSign` y enlaces simbólicos, copiar el
   directorio extraído a
   `%LOCALAPPDATA%\electron-builder\Cache\winCodeSign\winCodeSign-2.6.0\`.
-- `lib/Recuperar-KopiaDesk.ps1` se guarda en UTF-8 con BOM y CRLF (PowerShell 5.1
+- `lib/Recuperar-KiopiaDesk.ps1` se guarda en UTF-8 con BOM y CRLF (PowerShell 5.1
   necesita el BOM para las tildes).

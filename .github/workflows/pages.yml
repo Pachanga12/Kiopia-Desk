@@ -1,6 +1,6 @@
 name: Página web
 
-# Publica la carpeta web/ en GitHub Pages (https://pachanga12.github.io/Kopia-Desk/)
+# Publica la carpeta web/ en GitHub Pages (https://pachanga12.github.io/Kiopia-Desk/)
 # cada vez que cambia en main, o a mano desde la pestaña Actions.
 on:
   push:

@@ -39,8 +39,8 @@ test("validateNewPassword: mínimo 8, máximo 256, sin caracteres de control", (
 // --- Expulsar -------------------------------------------------------------------
 
 test("ejectScriptPath apunta a app.asar.unpacked dentro del instalador", () => {
-  const p = ejectScriptPath(path.join("C:\\", "Program Files", "Kopia Desk v3", "resources", "app.asar", "lib"));
-  assert.equal(p, path.join("C:\\", "Program Files", "Kopia Desk v3", "resources", "app.asar.unpacked", "lib", "eject-drive.ps1"));
+  const p = ejectScriptPath(path.join("C:\\", "Program Files", "Kiopia Desk v4", "resources", "app.asar", "lib"));
+  assert.equal(p, path.join("C:\\", "Program Files", "Kiopia Desk v4", "resources", "app.asar.unpacked", "lib", "eject-drive.ps1"));
   const dev = path.join(__dirname, "..", "lib");
   assert.equal(ejectScriptPath(dev), path.join(dev, "eject-drive.ps1"));
 });

@@ -1,6 +1,6 @@
 "use strict";
 
-// Kopia Desk v3 — página del producto: barra, animaciones al hacer scroll, luz
+// Kiopia Desk v4 — página del producto: barra, animaciones al hacer scroll, luz
 // que sigue al cursor, demo del cifrado, historia de versiones y preguntas.
 
 (function () {
@@ -160,8 +160,8 @@
 
   // --- Demo del cifrado -------------------------------------------------------------------
   // Nombres opacos con HMAC-SHA-256 y contenido con AES-256-CBC (clave derivada con
-  // PBKDF2), igual que Kopia Desk, pero en el navegador. Sin WebCrypto, se imita.
-  const CLAVE_DEMO = "kopia2026";
+  // PBKDF2), igual que Kiopia Desk, pero en el navegador. Sin WebCrypto, se imita.
+  const CLAVE_DEMO = "kiopia2026";
   const ARCHIVOS = [
     { ruta: "Fotos/Vacaciones 2025/playa al atardecer.jpg", tam: "2,4 MB", texto: "(foto JPEG de 4032 × 3024 píxeles)" },
     { ruta: "Fotos/Vacaciones 2025/cumpleaños de Sofía.jpg", tam: "3,1 MB", texto: "(foto JPEG de 4032 × 3024 píxeles)" },
@@ -169,8 +169,8 @@
     { ruta: "Documentos/presupuesto 2026.xlsx", tam: "48 KB", texto: "(hoja de cálculo: ingresos, gastos y ahorro por meses)" },
     { ruta: "Documentos/contrato del piso.pdf", tam: "820 KB", texto: "(documento PDF de 12 páginas)" },
   ];
-  const LANZADOR = '@echo off\nrem Abre las copias cifradas de Kopia Desk sin Kopia Desk.\nstart "" powershell.exe -NoProfile -ExecutionPolicy Bypass -STA\n  -WindowStyle Hidden -File "%~dp0Recuperar-KopiaDesk.ps1" -Accion Abrir';
-  const LEEME = "ESTE BACKUP DE KOPIA DESK ESTÁ CIFRADO\n\nPara ver o sacar tus archivos sin Kopia Desk:\ndoble clic en Abrir-KopiaDesk.cmd. Pide la\ncontraseña (o la clave de recuperación)...";
+  const LANZADOR = '@echo off\nrem Abre las copias cifradas de Kiopia Desk sin Kiopia Desk.\nstart "" powershell.exe -NoProfile -ExecutionPolicy Bypass -STA\n  -WindowStyle Hidden -File "%~dp0Recuperar-KiopiaDesk.ps1" -Accion Abrir';
+  const LEEME = "ESTE BACKUP DE KIOPIA DESK ESTÁ CIFRADO\n\nPara ver o sacar tus archivos sin Kiopia Desk:\ndoble clic en Abrir-KiopiaDesk.cmd. Pide la\ncontraseña (o la clave de recuperación)...";
 
   const demo = $("#demo");
   const lista = $("#demoLista");
@@ -273,10 +273,10 @@
 
   function pintarCifrado() {
     lista.textContent = "";
-    lista.append(fila("🟢", "Abrir-KopiaDesk.cmd", { tipo: "archivo", clase: "herramienta", clave: "#lanzador" }));
-    lista.append(fila("🟢", "Kopia Desk (portable).exe", { tipo: "archivo", clase: "herramienta", clave: "#portable" }));
+    lista.append(fila("🟢", "Abrir-KiopiaDesk.cmd", { tipo: "archivo", clase: "herramienta", clave: "#lanzador" }));
+    lista.append(fila("🟢", "Kiopia Desk (portable).exe", { tipo: "archivo", clase: "herramienta", clave: "#portable" }));
     lista.append(fila("📄", "LEEME-CIFRADO.txt", { tipo: "archivo", clave: "#leeme" }));
-    lista.append(fila("📁", ".kopia-data  (oculta)", { clase: "meta" }));
+    lista.append(fila("📁", ".kiopia-data  (oculta)", { clase: "meta" }));
     lista.append(fila("📁", "datos", {}));
     for (const a of ARCHIVOS) {
       lista.append(fila("🔒", cifrado.nombres.get(a.ruta), { nivel: 1, tipo: "archivo", clave: a.ruta }));
@@ -293,11 +293,11 @@
       return;
     }
     if (clave === "#lanzador") {
-      vistaTitulo.textContent = "Abrir-KopiaDesk.cmd  (solo lectura)";
+      vistaTitulo.textContent = "Abrir-KiopiaDesk.cmd  (solo lectura)";
       vista.textContent = LANZADOR;
     } else if (clave === "#portable") {
-      vistaTitulo.textContent = "Kopia Desk (portable).exe";
-      vista.textContent = "Kopia Desk completa en un solo archivo.\nSe abre en cualquier Windows sin instalar nada.";
+      vistaTitulo.textContent = "Kiopia Desk (portable).exe";
+      vista.textContent = "Kiopia Desk completa en un solo archivo.\nSe abre en cualquier Windows sin instalar nada.";
     } else if (clave === "#leeme") {
       vistaTitulo.textContent = "LEEME-CIFRADO.txt";
       vista.textContent = LEEME;
@@ -411,7 +411,7 @@
   const versiones = window.KD_VERSIONES || [];
   const linea = $("#linea");
   const detalle = $("#detalle");
-  const HITOS = new Set(["V0.1", "V0.6", "V1.0", "V2.0", "V3.0"]);
+  const HITOS = new Set(["V0.1", "V0.6", "V1.0", "V2.0", "V3.0", "V4.0"]);
 
   function elegirVersion(i, enfocar, desplazar = true) {
     const x = versiones[i];
@@ -502,7 +502,7 @@
         elegirVersion(n, true);
       }
     });
-    // Empieza en la última (la v3), sin mover la página.
+    // Empieza en la última (la v4), sin mover la página.
     const ultima = versiones.length - 1;
     $$(".hito", linea).forEach((b, k) => {
       b.setAttribute("aria-selected", String(k === ultima));

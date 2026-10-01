@@ -33,7 +33,7 @@ contextBridge.exposeInMainWorld("kopiaAPI", {
   planConcurrency: (driveRoot, avgFileSize) => ipcRenderer.invoke("backup:plan-concurrency", driveRoot, avgFileSize),
 
   ensurePortable: (driveRoot, volumeId) => ipcRenderer.invoke("backup:ensure-portable", driveRoot, volumeId),
-  // Cifrado de las copias (propio de Kopia Desk, v3).
+  // Cifrado de las copias (propio de Kiopia Desk, v3).
   cryptoStatus: (driveRoot) => ipcRenderer.invoke("crypto:status", driveRoot),
   cryptoEnable: (driveRoot, password) => ipcRenderer.invoke("crypto:enable", driveRoot, password),
   cryptoUnlock: (driveRoot, secret) => ipcRenderer.invoke("crypto:unlock", driveRoot, secret),

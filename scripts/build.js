@@ -1,6 +1,6 @@
 "use strict";
 
-// Compila Kopia Desk para Windows en dos pasos:
+// Compila Kiopia Desk para Windows en dos pasos:
 //   1. La versión PORTABLE (un solo .exe que se abre sin instalar), en dist/portable/.
 //   2. El INSTALADOR, que lleva dentro esa portable (resources/portable/): la app
 //      la copia al disco de backup para abrir las copias en otro PC sin instalar.
@@ -12,7 +12,7 @@ const builder = require("electron-builder");
 const pkg = require("../package.json");
 
 const ROOT = path.join(__dirname, "..");
-const PORTABLE_NAME = "KopiaDesk-Portable.exe";
+const PORTABLE_NAME = "KiopiaDesk-Portable.exe";
 const PORTABLE_OUT = path.join(ROOT, "dist", "portable");
 
 async function main() {

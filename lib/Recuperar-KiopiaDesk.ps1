@@ -1,5 +1,5 @@
 ﻿param(
-  # Carpeta KopiaDesk_Backup del disco (por defecto, la del propio script).
+  # Carpeta KiopiaDesk_Backup del disco (por defecto, la del propio script).
   # También vale la raíz del disco (E:\).
   [string]$Backup = $PSScriptRoot,
   # Recuperar: dónde dejar los archivos descifrados.
@@ -9,11 +9,11 @@
   # Recuperar: contraseña o clave (sólo para pruebas; si falta, se pregunta).
   [string]$Secreto,
   # Abrir: ventana para ver y sacar archivos (lo normal, con doble clic en
-  # Abrir-KopiaDesk.cmd). Recuperar: todo a una carpeta, desde la consola.
+  # Abrir-KiopiaDesk.cmd). Recuperar: todo a una carpeta, desde la consola.
   # Import: sólo cargar las funciones (para los tests).
   [ValidateSet('Abrir', 'Recuperar', 'Import')] [string]$Accion = 'Abrir'
 )
-# Abre un backup CIFRADO de Kopia Desk sin Kopia Desk: con la contraseña o con
+# Abre un backup CIFRADO de Kiopia Desk sin Kiopia Desk: con la contraseña o con
 # la clave de recuperación, en cualquier Windows 10/11 (también Home), sin
 # instalar nada y sin permisos de administrador.
 # Mismo formato que lib/cifrado.js y lib/almacen.js (AES-256-CBC + HMAC-SHA256,
@@ -93,7 +93,7 @@ function ConvertFrom-KdRecoveryKey([string]$Text) {
 
 # Clave maestra a partir de la contraseña o de la clave de recuperación ($null si no vale).
 function Unlock-KdVault($Vault, [string]$Secret) {
-  if ($Vault.formato -ne 'kopia-desk-cifrado' -or $Vault.version -ne 1) { throw 'Esto no es una caja de cifrado de Kopia Desk (cifrado.json).' }
+  if ($Vault.formato -ne 'kopia-desk-cifrado' -or $Vault.version -ne 1) { throw 'Esto no es una caja de cifrado de Kiopia Desk (cifrado.json).' }
   $rec = ConvertFrom-KdRecoveryKey $Secret
   if ($rec) {
     $r = $Vault.porRecuperacion
@@ -129,7 +129,7 @@ function Clear-KdNameCache {
 
 # Descifra un archivo pequeño (manifiesto, índice) a bytes. Comprueba la firma antes.
 function Unprotect-KdBytes([byte[]]$MasterKey, [byte[]]$Blob) {
-  if ($Blob.Length -lt 68 -or -not (Test-KdSame ([byte[]]$Blob[0..3]) $KdMagic)) { throw 'No es un archivo cifrado de Kopia Desk.' }
+  if ($Blob.Length -lt 68 -or -not (Test-KdSame ([byte[]]$Blob[0..3]) $KdMagic)) { throw 'No es un archivo cifrado de Kiopia Desk.' }
   $k = Get-KdSubkeys $MasterKey
   $iv = [byte[]]$Blob[4..19]
   $body = New-Object byte[] ($Blob.Length - 52)
@@ -169,10 +169,10 @@ function Unprotect-KdFile([byte[]]$MasterKey, [string]$Src, [string]$Dst, [scrip
   $in = [System.IO.File]::OpenRead($Src)
   try {
     $size = $in.Length
-    if ($size -lt 68) { throw 'No es un archivo cifrado de Kopia Desk.' }
+    if ($size -lt 68) { throw 'No es un archivo cifrado de Kiopia Desk.' }
     $head = New-Object byte[] 20
     [void]$in.Read($head, 0, 20)
-    if (-not (Test-KdSame ([byte[]]$head[0..3]) $KdMagic)) { throw 'No es un archivo cifrado de Kopia Desk.' }
+    if (-not (Test-KdSame ([byte[]]$head[0..3]) $KdMagic)) { throw 'No es un archivo cifrado de Kiopia Desk.' }
     $bodyEnd = $size - 32
     $h = New-Object System.Security.Cryptography.HMACSHA256 (, $k.Mac)
     [void]$h.TransformBlock($head, 0, 20, $null, 0)
@@ -220,26 +220,26 @@ function Unprotect-KdFile([byte[]]$MasterKey, [string]$Src, [string]$Dst, [scrip
 
 # --- El backup: caja de claves, catálogo y archivos ------------------------------
 
-# Acepta la carpeta KopiaDesk_Backup o la raíz del disco.
+# Acepta la carpeta KiopiaDesk_Backup o la raíz del disco.
 function Resolve-KdBackupRoot([string]$Path) {
   if (-not $Path) { $Path = (Get-Location).Path }
   $Path = [System.IO.Path]::GetFullPath($Path)
-  foreach ($c in @($Path, [System.IO.Path]::Combine($Path, 'KopiaDesk_Backup'))) {
-    if ([System.IO.Directory]::Exists([System.IO.Path]::Combine($c, '.kopia-data'))) { return $c }
+  foreach ($c in @($Path, [System.IO.Path]::Combine($Path, 'KiopiaDesk_Backup'))) {
+    if ([System.IO.Directory]::Exists([System.IO.Path]::Combine($c, '.kiopia-data'))) { return $c }
   }
   return $Path
 }
 
 function Read-KdVault([string]$BackupRoot) {
   foreach ($n in @('cifrado.json', 'cifrado.copia.json')) {
-    $p = [System.IO.Path]::Combine($BackupRoot, '.kopia-data', $n)
+    $p = [System.IO.Path]::Combine($BackupRoot, '.kiopia-data', $n)
     if (-not [System.IO.File]::Exists($p)) { continue }
     try {
       $v = [System.IO.File]::ReadAllText($p, [System.Text.Encoding]::UTF8) | ConvertFrom-Json
       if ($v.formato -eq 'kopia-desk-cifrado') { return $v }
     } catch { }
   }
-  throw "No se encontró la clave del backup cifrado (.kopia-data\cifrado.json) en:`n$BackupRoot`n`n¿Es la carpeta KopiaDesk_Backup de un backup cifrado?"
+  throw "No se encontró la clave del backup cifrado (.kiopia-data\cifrado.json) en:`n$BackupRoot`n`n¿Es la carpeta KiopiaDesk_Backup de un backup cifrado?"
 }
 
 # Campo de un diccionario leído del JSON ($null si no está).
@@ -251,7 +251,7 @@ function Get-KdField($Dict, [string]$Key) {
 # Carpetas respaldadas: @{ Fuentes = [ { Fuente, Carpeta, Archivos } ]; Avisos = [...] }.
 # Archivos: diccionario "ruta/dentro" -> { size, hash, lastModified }.
 function Get-KdCatalog([byte[]]$MasterKey, [string]$BackupRoot) {
-  $dir = [System.IO.Path]::Combine($BackupRoot, '.kopia-data', 'manifests')
+  $dir = [System.IO.Path]::Combine($BackupRoot, '.kiopia-data', 'manifests')
   $fuentes = New-Object System.Collections.ArrayList
   $avisos = New-Object System.Collections.ArrayList
   if ([System.IO.Directory]::Exists($dir)) {
@@ -322,7 +322,7 @@ function Get-KdFreeName([string]$Path) {
 function Restore-KdEntry([byte[]]$MasterKey, [string]$Blob, [string]$Target, $Entry, [scriptblock]$OnChunk = $null) {
   [void][System.IO.Directory]::CreateDirectory((Get-KdIoPath ([System.IO.Path]::GetDirectoryName($Target))))
   $final = Get-KdFreeName $Target
-  $ioTmp = Get-KdIoPath ($final + '.kopia-tmp')
+  $ioTmp = Get-KdIoPath ($final + '.kiopia-tmp')
   if ([System.IO.File]::Exists($ioTmp)) { [System.IO.File]::Delete($ioTmp) }
   try {
     $hash = Unprotect-KdFile $MasterKey $Blob $ioTmp $OnChunk
@@ -412,7 +412,7 @@ function Format-KdSize([double]$Bytes) {
 
 function Show-KdPasswordDialog($Vault) {
   $f = New-Object System.Windows.Forms.Form
-  $f.Text = 'Kopia Desk: copias cifradas'
+  $f.Text = 'Kiopia Desk: copias cifradas'
   $f.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
   $f.MaximizeBox = $false
   $f.MinimizeBox = $false
@@ -424,7 +424,7 @@ function Show-KdPasswordDialog($Vault) {
   $lbl = New-Object System.Windows.Forms.Label
   $lbl.Location = New-Object System.Drawing.Point(14, 12)
   $lbl.Size = New-Object System.Drawing.Size(412, 36)
-  $lbl.Text = 'Estas copias de Kopia Desk están cifradas. Escribe la contraseña o la clave de recuperación para verlas.'
+  $lbl.Text = 'Estas copias de Kiopia Desk están cifradas. Escribe la contraseña o la clave de recuperación para verlas.'
   $txt = New-Object System.Windows.Forms.TextBox
   $txt.Location = New-Object System.Drawing.Point(14, 56)
   $txt.Width = 412
@@ -481,14 +481,14 @@ function Show-KdPasswordDialog($Vault) {
 }
 
 function Show-KdBrowser([string]$BackupRoot, $Catalog) {
-  $script:KdTemp = [System.IO.Path]::Combine($env:TEMP, 'KopiaDesk-' + [guid]::NewGuid().ToString('N').Substring(0, 8))
+  $script:KdTemp = [System.IO.Path]::Combine($env:TEMP, 'KiopiaDesk-' + [guid]::NewGuid().ToString('N').Substring(0, 8))
   $script:KdBusy = $false
   $script:KdCancel = $false
   $script:KdCloseAfter = $false
   $script:KdIndexes = @{}
 
   $f = New-Object System.Windows.Forms.Form
-  $f.Text = 'Kopia Desk: copias cifradas en ' + $BackupRoot
+  $f.Text = 'Kiopia Desk: copias cifradas en ' + $BackupRoot
   $f.StartPosition = [System.Windows.Forms.FormStartPosition]::CenterScreen
   $f.Font = New-Object System.Drawing.Font('Segoe UI', 9)
   $f.AutoScaleMode = [System.Windows.Forms.AutoScaleMode]::Font
@@ -646,7 +646,7 @@ function Show-KdBrowser([string]$BackupRoot, $Catalog) {
     $t = $n.Tag
     $blob = Get-KdDataPath $script:KdMk $BackupRoot $t.Source.Carpeta $t.Rel
     if (-not [System.IO.File]::Exists($blob)) {
-      [void][System.Windows.Forms.MessageBox]::Show('Este archivo no está en el disco de backup (se borró o el disco está dañado).', 'Kopia Desk', 'OK', 'Warning')
+      [void][System.Windows.Forms.MessageBox]::Show('Este archivo no está en el disco de backup (se borró o el disco está dañado).', 'Kiopia Desk', 'OK', 'Warning')
       return
     }
     $dir = [System.IO.Path]::Combine($script:KdTemp, [guid]::NewGuid().ToString('N').Substring(0, 6))
@@ -659,7 +659,7 @@ function Show-KdBrowser([string]$BackupRoot, $Catalog) {
       $path = Restore-KdEntry $script:KdMk $blob ([System.IO.Path]::Combine($dir, $t.Name)) $t.Source.Archivos[$t.Rel] $script:KdPump
       $status.Text = 'Abierto: ' + $t.Name + ' (copia temporal: se borra al cerrar esta ventana).'
       try { Start-Process -FilePath $path } catch {
-        [void][System.Windows.Forms.MessageBox]::Show("No hay un programa para abrir este tipo de archivo.`n`nUsa «Sacar…» para guardarlo.", 'Kopia Desk', 'OK', 'Information')
+        [void][System.Windows.Forms.MessageBox]::Show("No hay un programa para abrir este tipo de archivo.`n`nUsa «Sacar…» para guardarlo.", 'Kiopia Desk', 'OK', 'Information')
       }
     } catch {
       $status.Text = if ($_.Exception.Message -eq 'KD-CANCEL') { 'Cancelado.' } else { 'No se pudo abrir: ' + $_.Exception.Message }
@@ -679,7 +679,7 @@ function Show-KdBrowser([string]$BackupRoot, $Catalog) {
     if ($dlg.ShowDialog($f) -ne [System.Windows.Forms.DialogResult]::OK) { return }
     $destBase = $dlg.SelectedPath
     if ($destBase.StartsWith($BackupRoot, [StringComparison]::OrdinalIgnoreCase)) {
-      [void][System.Windows.Forms.MessageBox]::Show('Elige una carpeta fuera del backup: si se guarda dentro, quedaría sin cifrar junto a las copias.', 'Kopia Desk', 'OK', 'Warning')
+      [void][System.Windows.Forms.MessageBox]::Show('Elige una carpeta fuera del backup: si se guarda dentro, quedaría sin cifrar junto a las copias.', 'Kiopia Desk', 'OK', 'Warning')
       return
     }
     $items = Get-KdSelectedItems $n $destBase
@@ -709,7 +709,7 @@ function Show-KdBrowser([string]$BackupRoot, $Catalog) {
       }
       $status.Text = "Guardados $($r.Ok) de $total archivo(s)."
       if (-not $script:KdCloseAfter) {
-        $ans = [System.Windows.Forms.MessageBox]::Show($msg + "`n`n¿Abrir la carpeta?", 'Kopia Desk', 'YesNo', $(if ($r.Fallidos.Count) { 'Warning' } else { 'Information' }))
+        $ans = [System.Windows.Forms.MessageBox]::Show($msg + "`n`n¿Abrir la carpeta?", 'Kiopia Desk', 'YesNo', $(if ($r.Fallidos.Count) { 'Warning' } else { 'Information' }))
         if ($ans -eq [System.Windows.Forms.DialogResult]::Yes) { Start-Process -FilePath 'explorer.exe' -ArgumentList ('"' + $shownDir + '"') }
       }
     } catch {
@@ -728,7 +728,7 @@ function Show-KdBrowser([string]$BackupRoot, $Catalog) {
     foreach ($v in $s.Archivos.Values) { $count++; $bytes += [double](Get-KdField $v 'size') }
   }
   $root = New-Object System.Windows.Forms.TreeNode("Copias en $BackupRoot")
-  $root.Tag = @{ Kind = 'root'; Name = 'Kopia Desk' }
+  $root.Tag = @{ Kind = 'root'; Name = 'Kiopia Desk' }
   foreach ($s in $Catalog.Fuentes) {
     [void]$root.Nodes.Add((New-KdDirNode $s.Fuente @{ Kind = 'dir'; Source = $s; Prefix = ''; Name = $s.Carpeta }))
   }
@@ -761,7 +761,7 @@ function Show-KdBrowser([string]$BackupRoot, $Catalog) {
   })
   $f.Add_Shown({
     if ($Catalog.Avisos.Count) {
-      [void][System.Windows.Forms.MessageBox]::Show(($Catalog.Avisos -join "`n"), 'Kopia Desk', 'OK', 'Warning')
+      [void][System.Windows.Forms.MessageBox]::Show(($Catalog.Avisos -join "`n"), 'Kiopia Desk', 'OK', 'Warning')
     }
     if (-not $Catalog.Fuentes.Count) { $status.Text = 'Este backup cifrado todavía no tiene copias.' }
   })
@@ -778,10 +778,10 @@ function Remove-KdTemp {
     try { [System.IO.Directory]::Delete($script:KdTemp, $true); return } catch { }
     $ans = [System.Windows.Forms.MessageBox]::Show(
       "Algún archivo que abriste con «Ver» sigue abierto en otro programa, así que su copia descifrada no se puede borrar todavía.`n`nCiérralo y pulsa «Reintentar».",
-      'Kopia Desk', 'RetryCancel', 'Warning')
+      'Kiopia Desk', 'RetryCancel', 'Warning')
     if ($ans -ne [System.Windows.Forms.DialogResult]::Retry) { break }
   }
-  [void][System.Windows.Forms.MessageBox]::Show("No se pudieron borrar las copias temporales. Bórralas a mano cuando cierres ese programa:`n`n$($script:KdTemp)", 'Kopia Desk', 'OK', 'Warning')
+  [void][System.Windows.Forms.MessageBox]::Show("No se pudieron borrar las copias temporales. Bórralas a mano cuando cierres ese programa:`n`n$($script:KdTemp)", 'Kiopia Desk', 'OK', 'Warning')
 }
 
 function Show-KdOpen([string]$BackupRoot) {
@@ -826,5 +826,5 @@ try {
   Show-KdOpen $root
 } catch {
   Add-Type -AssemblyName System.Windows.Forms
-  [void][System.Windows.Forms.MessageBox]::Show("No se pudo abrir el backup cifrado:`n`n$($_.Exception.Message)", 'Kopia Desk', 'OK', 'Error')
+  [void][System.Windows.Forms.MessageBox]::Show("No se pudo abrir el backup cifrado:`n`n$($_.Exception.Message)", 'Kiopia Desk', 'OK', 'Error')
 }

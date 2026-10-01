@@ -1,14 +1,14 @@
 {
   "name": "kopia-desk",
-  "version": "3.0.1",
-  "description": "Kopia Desk v3: copias de seguridad incrementales para Windows, con copia verificada y copias cifradas con contraseña",
-  "homepage": "https://github.com/Pachanga12/Kopia-Desk#readme",
+  "version": "4.0.0",
+  "description": "Kiopia Desk v4: copias de seguridad incrementales para Windows, con copia verificada y copias cifradas con contraseña",
+  "homepage": "https://github.com/Pachanga12/Kiopia-Desk#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Pachanga12/Kopia-Desk.git"
+    "url": "https://github.com/Pachanga12/Kiopia-Desk.git"
   },
   "bugs": {
-    "url": "https://github.com/Pachanga12/Kopia-Desk/issues"
+    "url": "https://github.com/Pachanga12/Kiopia-Desk/issues"
   },
   "main": "main.js",
   "scripts": {
@@ -25,14 +25,14 @@
   },
   "build": {
     "appId": "com.kopiadesk.app",
-    "productName": "Kopia Desk v3",
+    "productName": "Kiopia Desk v4",
     "win": {
       "target": "nsis",
-      "icon": "assets/Kopia_Desk_icon.png"
+      "icon": "assets/Kiopia_Desk_icon.png"
     },
     "asarUnpack": [
       "lib/eject-drive.ps1",
-      "lib/Recuperar-KopiaDesk.ps1"
+      "lib/Recuperar-KiopiaDesk.ps1"
     ],
     "files": [
       "main.js",
@@ -53,8 +53,8 @@
       "include": "build/installer.nsh",
       "createDesktopShortcut": false,
       "createStartMenuShortcut": true,
-      "shortcutName": "Kopia Desk v3",
-      "uninstallDisplayName": "Kopia Desk v3",
+      "shortcutName": "Kiopia Desk v4",
+      "uninstallDisplayName": "Kiopia Desk v4",
       "deleteAppDataOnUninstall": false,
       "installerSidebar": "build/installerSidebar.bmp",
       "uninstallerSidebar": "build/installerSidebar.bmp"

@@ -1,29 +1,29 @@
-# Kopia Desk v3
+# Kiopia Desk v4
 
-[![CI](https://github.com/Pachanga12/Kopia-Desk/actions/workflows/ci.yml/badge.svg)](https://github.com/Pachanga12/Kopia-Desk/actions/workflows/ci.yml)
+[![CI](https://github.com/Pachanga12/Kiopia-Desk/actions/workflows/ci.yml/badge.svg)](https://github.com/Pachanga12/Kiopia-Desk/actions/workflows/ci.yml)
 ![Plataforma](https://img.shields.io/badge/plataforma-Windows%2010%2F11-0078D6?logo=windows&logoColor=white)
 ![Electron](https://img.shields.io/badge/Electron-43-47848F?logo=electron&logoColor=white)
 ![Tests](https://img.shields.io/badge/tests-167-brightgreen?logo=nodedotjs&logoColor=white)
 [![Licencia](https://img.shields.io/badge/licencia-MIT-blue)](LICENSE)
 
-Aplicación de escritorio para copias de seguridad incrementales en Windows. Permite respaldar carpetas como Imágenes, Documentos o Descargas a discos externos o USB y, si quieres, guardarlas **cifradas con una contraseña**: el contenido y también los nombres de archivos y carpetas. Las copias cifradas se abren en cualquier Windows 10/11 (también Home) con Kopia Desk o, sin ella, con el programa que queda en el propio disco.
+Aplicación de escritorio para copias de seguridad incrementales en Windows. Permite respaldar carpetas como Imágenes, Documentos o Descargas a discos externos o USB y, si quieres, guardarlas **cifradas con una contraseña**: el contenido y también los nombres de archivos y carpetas. Las copias cifradas se abren en cualquier Windows 10/11 (también Home) con Kiopia Desk o, sin ella, con el programa que queda en el propio disco.
 
-> **Estado: versión 3.0.** Este README documenta lo que la app hace hoy, los problemas detectados en revisión de código (y cuáles ya están corregidos), y el trabajo pendiente. Antes de confiarle datos que no puedas perder, lee las secciones [Problemas conocidos](#problemas-conocidos) y [Limitaciones](#limitaciones).
+> **Estado: versión 4.0.** Este README documenta lo que la app hace hoy, los problemas detectados en revisión de código (y cuáles ya están corregidos), y el trabajo pendiente. Antes de confiarle datos que no puedas perder, lee las secciones [Problemas conocidos](#problemas-conocidos) y [Limitaciones](#limitaciones).
 
-Kopia Desk es un proyecto independiente. No tiene relación con [Kopia](https://kopia.io) (la herramienta de backup en Go).
+Kiopia Desk es un proyecto independiente. No tiene relación con [Kopia](https://kopia.io) (la herramienta de backup en Go). Hasta la v3.0.1 se llamaba *Kopia Desk*; en la v4.0 cambió de nombre para no confundirse con ella.
 
 ---
 
 ## Descargar
 
-El instalador para Windows está en **[Releases](https://github.com/Pachanga12/Kopia-Desk/releases/latest)**: descarga `Kopia.Desk.v3.Setup.3.0.1.exe` y ejecútalo. Si no quieres instalar nada, `Kopia.Desk.v3.Portable.3.0.1.exe` se abre directamente.
+El instalador para Windows está en **[Releases](https://github.com/Pachanga12/Kiopia-Desk/releases/latest)**: descarga `Kiopia.Desk.v4.Setup.4.0.0.exe` y ejecútalo. Si no quieres instalar nada, `Kiopia.Desk.v4.Portable.4.0.0.exe` se abre directamente.
 
 - El instalador **no está firmado**: Windows SmartScreen puede mostrar "Windows protegió su PC". Pulsa **Más información → Ejecutar de todas formas**.
-- **Instalar** es un asistente en español: bienvenida, licencia (hay que marcar **"Acepto los términos de la licencia"** para seguir; se muestra la traducción al español y el original en inglés) y final con **"Abrir Kopia Desk ahora"** y **"Crear acceso directo en el escritorio"** (marcadas). Se instala solo para tu usuario, sin pedir permiso de administrador.
-- **Desinstalar** (desde "Agregar o quitar programas") pide confirmación, recuerda que **los backups de tus discos no se borran**, ofrece **"Borrar también mi configuración"** (desmarcada) y termina con "Muchas gracias por usar Kopia Desk". También quita el acceso directo del escritorio.
+- **Instalar** es un asistente en español: bienvenida, licencia (hay que marcar **"Acepto los términos de la licencia"** para seguir; se muestra la traducción al español y el original en inglés) y final con **"Abrir Kiopia Desk ahora"** y **"Crear acceso directo en el escritorio"** (marcadas). Se instala solo para tu usuario, sin pedir permiso de administrador.
+- **Desinstalar** (desde "Agregar o quitar programas") pide confirmación, recuerda que **los backups de tus discos no se borran**, ofrece **"Borrar también mi configuración"** (desmarcada) y termina con "Muchas gracias por usar Kiopia Desk". También quita el acceso directo del escritorio.
 - Nada de la app pide permiso de administrador, tampoco cifrar las copias.
 - Para más detalle técnico del código, ver [docs/arquitectura.md](docs/arquitectura.md).
-- Página del producto: **https://pachanga12.github.io/Kopia-Desk/** (código en [web/](web/index.html): HTML, CSS y JS sin compilar; se publica sola con GitHub Pages cada vez que cambia, ver `.github/workflows/pages.yml`).
+- Página del producto: **https://pachanga12.github.io/Kiopia-Desk/** (código en [web/](web/index.html): HTML, CSS y JS sin compilar; se publica sola con GitHub Pages cada vez que cambia, ver `.github/workflows/pages.yml`).
 
 ---
 
@@ -73,7 +73,7 @@ $env:CSC_IDENTITY_AUTO_DISCOVERY = "false"   # sin certificado de firma
 npm run build
 ```
 
-Genera, con `scripts/build.js`, `dist/portable/KopiaDesk-Portable.exe` (Kopia Desk portable, un solo `.exe` que se abre sin instalar, ~90 MB) y `dist/Kopia Desk v3 Setup <versión>.exe` (instalador NSIS, que lleva dentro la portable para copiarla a los discos de backup). El instalador **no está firmado** todavía (ver [Seguridad](#seguridad)). Más detalles en [docs/arquitectura.md](docs/arquitectura.md#notas-de-desarrollo).
+Genera, con `scripts/build.js`, `dist/portable/KiopiaDesk-Portable.exe` (Kiopia Desk portable, un solo `.exe` que se abre sin instalar, ~90 MB) y `dist/Kiopia Desk v4 Setup <versión>.exe` (instalador NSIS, que lleva dentro la portable para copiarla a los discos de backup). El instalador **no está firmado** todavía (ver [Seguridad](#seguridad)). Más detalles en [docs/arquitectura.md](docs/arquitectura.md#notas-de-desarrollo).
 
 En GitHub, `.github/workflows/release.yml` compila y publica el instalador automáticamente al subir un tag de versión (por ejemplo `v2.1.1`), o a mano desde la pestaña *Actions*.
 
@@ -83,7 +83,7 @@ En GitHub, `.github/workflows/release.yml` compila y publica el instalador autom
 
 - **Selección de carpetas origen** con el diálogo nativo de Windows o con accesos rápidos a Imágenes, Documentos, Descargas, Música, Videos y Escritorio (solo aparecen las que existen). Si dos carpetas terminan con el mismo nombre, la segunda se renombra (carpeta padre o número) para no compartir manifiesto.
 - **Tutorial** la primera vez que se abre la app recién instalada: sombrea la ventana y deja iluminada una parte cada vez (Origen, Destino, cifrado, Resumen, Excluir, Opciones, Comparar/Restaurar y Registro), con una explicación y **Atrás / Siguiente / Saltar tutorial** (también con las flechas y Esc). Después no vuelve a salir solo; se repite desde **Opciones → Ver el tutorial**. Quien ya usaba la app (tiene carpetas guardadas) no lo ve al actualizar.
-- **Kopia Desk portable en el disco de backup:** al terminar cada backup, la app deja en `KopiaDesk_Backup\Kopia Desk (portable).exe` la versión portable (se abre en cualquier Windows sin instalar nada), de solo lectura. Sólo se copia la primera vez o cuando cambia de versión, y no si el disco se quedaría sin espacio.
+- **Kiopia Desk portable en el disco de backup:** al terminar cada backup, la app deja en `KiopiaDesk_Backup\Kiopia Desk (portable).exe` la versión portable (se abre en cualquier Windows sin instalar nada), de solo lectura. Sólo se copia la primera vez o cuando cambia de versión, y no si el disco se quedaría sin espacio.
 - **Peso de cada carpeta** al agregarla ("12,4 GB · 3.210 archivos"), con las mismas exclusiones que el backup.
 - **Resumen antes de copiar**, debajo de Origen: cuánto pesa lo seleccionado, cuánto se va a copiar de verdad tras escanear (en un backup incremental, solo lo nuevo y lo cambiado) y el espacio libre del destino, con **"Cabe" / "No cabe"** y los botones **Escanear** y **Copiar**. Si esos botones quedan fuera de la vista (muchas carpetas o pantalla baja), aparece una barra fija abajo con el mismo veredicto y los mismos botones.
 - **Tiempo de la copia:** antes de copiar, el Resumen estima cuánto tardará con la velocidad medida en ese disco en backups anteriores (incluye guardar las versiones anteriores). Durante la copia: "Lleva 1:23 · quedan ~3 min · 25 MB/s"; al terminar, el registro dice cuánto tardó.
@@ -91,7 +91,7 @@ En GitHub, `.github/workflows/release.yml` compila y publica el instalador autom
 - **Segundo plano:** al pulsar la X, la app pregunta si cerrar o seguir en segundo plano (con un icono junto al reloj de Windows para volver o salir y un aviso al terminar la copia); la elección se puede recordar y cambiar en Opciones. Si se cierra con una copia en curso, se detiene como con "Detener" antes de salir.
 - **Último backup** en la tarjeta del disco destino: cuándo fue, cuántos archivos copió y un botón **Abrir carpeta** para verlo en el Explorador. Sale de los informes que la app ya deja en el disco en cada copia.
 - **Detección de discos/USB** conectados con espacio disponible y sistema de archivos (NTFS, exFAT, FAT32). La lista **se actualiza sola al conectar o quitar una USB** (aviso `WM_DEVICECHANGE` de Windows, sin consultar a intervalos) y conserva el disco elegido; también hay un botón ↻ junto al selector. **El disco de backup vuelve a elegirse solo:** si lo desconectas (o lo expulsas) y lo vuelves a conectar, aunque Windows le dé otra letra, la app lo reconoce por su identidad y lo elige otra vez; al abrir la app también lo busca por su identidad. Si en su letra aparece otro disco, no se elige solo.
-- **Copias cifradas con contraseña** (opcional, por disco): contenido y nombres cifrados con AES-256, clave de recuperación que se muestra una sola vez, abrir y cerrar desde el panel del disco y cambiar la contraseña. Funciona en cualquier Windows y en cualquier disco (FAT32, exFAT, NTFS), sin administrador. En el disco queda **Abrir-KopiaDesk.cmd** para ver y sacar archivos en otro PC sin Kopia Desk. Ver [Cifrado](#cifrado-de-las-copias).
+- **Copias cifradas con contraseña** (opcional, por disco): contenido y nombres cifrados con AES-256, clave de recuperación que se muestra una sola vez, abrir y cerrar desde el panel del disco y cambiar la contraseña. Funciona en cualquier Windows y en cualquier disco (FAT32, exFAT, NTFS), sin administrador. En el disco queda **Abrir-KiopiaDesk.cmd** para ver y sacar archivos en otro PC sin Kiopia Desk. Ver [Cifrado](#cifrado-de-las-copias).
 - **Expulsar** el disco de forma segura desde el panel del disco.
 - **Escaneo recursivo** asíncrono con barra de progreso.
 - **Excluir lo que no quieres copiar**, en su propia tarjeta bajo el Resumen: con **Carpeta** y **Archivo** eliges con el explorador carpetas o archivos concretos dentro de tus carpetas de origen (se excluye esa ruta, no todo lo que se llame igual) y se quitan de la lista con ×. Plegado en **Por nombre o tipo** están las reglas por defecto como casillas (archivos de Windows `desktop.ini`/`Thumbs.db`, temporales `*.tmp`/`~$*`, `.git` y `node_modules`; desmarcar una hace que se copie) y los patrones propios (`*.iso`, `Backups_temp`). `$RECYCLE.BIN` y `System Volume Information` se ignoran siempre. Los resultados del escaneo muestran el grupo **Excluidos por filtros** con cada elemento y la regla que lo dejó fuera. Al cambiar las exclusiones se vuelve a medir el peso y hay que volver a escanear.
@@ -101,28 +101,28 @@ En GitHub, `.github/workflows/release.yml` compila y publica el instalador autom
 - **Aviso de cambios sospechosos:** si más de la mitad de lo respaldado cambió de golpe, o desaparecieron y aparecieron muchos archivos a la vez (patrón típico de ransomware o corrupción masiva), la copia se bloquea hasta que confirmes que lo revisaste.
 - **Verificación de espacio libre en vivo.** Si lo que se va a copiar no entra, el Resumen dice cuánto falta y se deshabilita la copia.
 - **Aviso de FAT32:** los archivos de 4 GB o más no caben en un disco FAT32; se avisan antes de copiar, se omiten y vuelven a aparecer en el próximo escaneo.
-- **Copia a `<disco>\KopiaDesk_Backup\<carpeta>\`** con concurrencia adaptada al tipo de disco (SSD/HDD; los pendrives USB copian de a un archivo, que en pruebas resultó más rápido que en paralelo).
-- **Copia atómica y verificada:** cada archivo se copia a un temporal `.kopia-tmp` junto al destino, se compara el SHA-256 del temporal contra el del origen, se comprueba que el origen no cambió durante la copia y recién entonces se renombra sobre el destino. Un corte a mitad nunca deja un archivo del backup truncado.
+- **Copia a `<disco>\KiopiaDesk_Backup\<carpeta>\`** con concurrencia adaptada al tipo de disco (SSD/HDD; los pendrives USB copian de a un archivo, que en pruebas resultó más rápido que en paralelo).
+- **Copia atómica y verificada:** cada archivo se copia a un temporal `.kiopia-tmp` junto al destino, se compara el SHA-256 del temporal contra el del origen, se comprueba que el origen no cambió durante la copia y recién entonces se renombra sobre el destino. Un corte a mitad nunca deja un archivo del backup truncado.
 - **Reintentos ante bloqueos pasajeros:** si un archivo está bloqueado un instante (antivirus, indexador de búsqueda, OneDrive), la copia se reintenta hasta 3 veces con espera creciente (80, 160 y 320 ms), siempre sobre el temporal: el archivo que ya estaba en el backup no se toca mientras tanto ni si al final falla. Errores que no se arreglan esperando (sin permiso, archivo inexistente, disco lleno) fallan al primer intento.
 - **El manifiesto solo registra lo que se copió y verificó**, con su SHA-256. Lo que falló (archivo en uso, disco lleno, etc.) vuelve a aparecer en el próximo escaneo.
 - **Deduplicación por contenido** (SHA-256 completo): si el archivo ya existe en el backup, se crea un hardlink en vez de copiar. Antes de enlazar se verifica por hash que el archivo indexado siga teniendo ese contenido. En exFAT/FAT32 no hay hardlinks y se copia normal.
-- **Versionado opcional:** antes de sobrescribir un archivo cambiado, guarda la versión anterior comprimida con gzip en `.kopia-data\versions\<fecha>\`.
+- **Versionado opcional:** antes de sobrescribir un archivo cambiado, guarda la versión anterior comprimida con gzip en `.kiopia-data\versions\<fecha>\`.
 - **Verificación profunda opcional:** revisa por SHA-256 completo también los archivos que conservan tamaño y fecha.
 - **Journal de operaciones:** detecta backups interrumpidos (corte de luz, USB desconectado), explica qué pasó y pide confirmación antes de borrar los temporales que quedaron a medias. Nunca borra archivos del backup.
 - **Pestaña Comparar:** compara carpetas del backup contra carpetas locales elegidas, detecta faltantes y permite restaurar solo esos. Detecta archivos que figuran como respaldados pero ya no están en el disco de backup.
 - **Pestaña Restaurar:** trae una carpeta del backup a cualquier ubicación, útil tras formatear o con otro perfil de Windows. Con **Elegir carpetas** se abre su árbol de subcarpetas con casillas (archivos y tamaño de cada una) para restaurar sólo las marcadas. Siempre vuelve **dentro de una carpeta con su nombre**: «Capturas» restaurada en `D:\Recuperado` queda en `D:\Recuperado\Capturas\…`, con sus subcarpetas. La restauración usa la misma copia verificada.
 - **Tema claro/oscuro**, ventana sin marco con controles propios y persistencia de configuración.
-- **Instancia única:** si Kopia Desk ya está abierta, abrirla de nuevo trae al frente la ventana existente en vez de abrir otra (dos instancias podrían pisarse los manifiestos y la configuración).
+- **Instancia única:** si Kiopia Desk ya está abierta, abrirla de nuevo trae al frente la ventana existente en vez de abrir otra (dos instancias podrían pisarse los manifiestos y la configuración).
 
 ---
 
 ## Estructura de backup en disco destino
 
 ```
-D:\KopiaDesk_Backup\
+D:\KiopiaDesk_Backup\
 ├── Fotos\                    archivos respaldados (visibles, usables sin la app)
 ├── Documentos\
-└── .kopia-data\              oculta (atributos Hidden + System)
+└── .kiopia-data\              oculta (atributos Hidden + System)
     ├── manifests\            estado de cada carpeta, con SHA-256 (+ .prev.json)
     ├── versions\             versiones anteriores (.gz)
     ├── journal\              registro de backups en curso
@@ -136,12 +136,12 @@ Los archivos respaldados son archivos normales. Si la app no está disponible, s
 Con las copias cifradas (ver [Cifrado](#cifrado-de-las-copias)) no queda ningún nombre en claro:
 
 ```
-D:\KopiaDesk_Backup\
-├── Abrir-KopiaDesk.cmd       doble clic: ver y sacar archivos sin la app
-├── Recuperar-KopiaDesk.ps1   lo que abre Abrir-KopiaDesk.cmd (y recuperación por consola)
+D:\KiopiaDesk_Backup\
+├── Abrir-KiopiaDesk.cmd       doble clic: ver y sacar archivos sin la app
+├── Recuperar-KiopiaDesk.ps1   lo que abre Abrir-KiopiaDesk.cmd (y recuperación por consola)
 ├── LEEME-CIFRADO.txt
 ├── datos\3f\9a1c…e2.kdc       un archivo cifrado por archivo respaldado (nombre opaco)
-└── .kopia-data\
+└── .kiopia-data\
     ├── cifrado.json          la clave maestra, envuelta con la contraseña y con la clave de recuperación
     ├── cifrado.copia.json    copia de la anterior
     ├── manifests\<opaco>.kdc registro cifrado de cada carpeta: su nombre real y el de cada archivo
@@ -151,17 +151,17 @@ D:\KopiaDesk_Backup\
     └── fuentes.kdc           rutas de origen recordadas (cifrado)
 ```
 
-Un archivo `*.kopia-tmp` dentro del backup es una copia que quedó a medias por un corte; se puede borrar sin perder nada (la app lo hace al confirmar la limpieza del journal).
+Un archivo `*.kiopia-tmp` dentro del backup es una copia que quedó a medias por un corte; se puede borrar sin perder nada (la app lo hace al confirmar la limpieza del journal).
 
 ---
 
 ## Cifrado de las copias
 
-> **Estado: v3.0 en desarrollo.** Sustituye al cifrado con BitLocker de la v2, que no se podía usar en Windows Home.
+> **Desde la v3.0.** Sustituye al cifrado con BitLocker de la v2, que no se podía usar en Windows Home.
 
 ### Qué se cifra y qué no
 
-Se cifran **las copias de Kopia Desk**, no el disco entero: el contenido de cada archivo y también los nombres de archivos y carpetas, los registros (manifiestos), los informes y el índice de deduplicación. En el disco sólo quedan nombres opacos (`datos\3f\9a1c…e2.kdc`) y las fechas de cada backup. Lo que guardes a mano en el disco, fuera de Kopia Desk, no se cifra.
+Se cifran **las copias de Kiopia Desk**, no el disco entero: el contenido de cada archivo y también los nombres de archivos y carpetas, los registros (manifiestos), los informes y el índice de deduplicación. En el disco sólo quedan nombres opacos (`datos\3f\9a1c…e2.kdc`) y las fechas de cada backup. Lo que guardes a mano en el disco, fuera de Kiopia Desk, no se cifra.
 
 Es opcional y se decide por disco. Para no mezclar, sólo se activa en un disco **sin** backup previo (o vacío); un disco con copias sin cifrar lo explica y propone usar otro.
 
@@ -172,7 +172,7 @@ Es opcional y se decide por disco. Para no mezclar, sólo se activa en un disco 
 | BitLocker (v2) | No | Sí (pide la clave al conectar) | Para cifrar |
 | VeraCrypt portable | Sí (instalado) | No: necesita un controlador | Sí |
 | SecurStick | Sí | Sí | No, pero es cerrado, lento y depende de WebDAV, que Microsoft declaró obsoleto |
-| **Kopia Desk v3** | **Sí** | **Sí** (Abrir-KopiaDesk.cmd) | **No** |
+| **Kiopia Desk v4** | **Sí** | **Sí** (Abrir-KiopiaDesk.cmd) | **No** |
 
 Ninguna opción puede pedir la clave sola al conectar la USB en un PC ajeno: Windows no ejecuta el `autorun.inf` de las memorias USB desde Windows 7. Siempre hace falta un doble clic en el programa del disco.
 
@@ -193,7 +193,7 @@ La clave del disco abierto sólo vive en la memoria del proceso principal mientr
 
 ### Sin la app (en otro PC)
 
-En la carpeta `KopiaDesk_Backup` del disco quedan `Abrir-KopiaDesk.cmd`, `Recuperar-KopiaDesk.ps1` y `LEEME-CIFRADO.txt`, de **solo lectura** (Windows avisa antes de borrarlos). Si aun así se borran, o son de una versión anterior, la app los repone sola cada vez que se elige o se vuelve a conectar el disco (sólo escribe los que faltan o cambiaron). Después del primer backup también está **Kopia Desk (portable).exe**. Con doble clic en **Abrir-KopiaDesk.cmd**, en cualquier Windows 10/11, también Home, sin instalar nada ni permisos de administrador:
+En la carpeta `KiopiaDesk_Backup` del disco quedan `Abrir-KiopiaDesk.cmd`, `Recuperar-KiopiaDesk.ps1` y `LEEME-CIFRADO.txt`, de **solo lectura** (Windows avisa antes de borrarlos). Si aun así se borran, o son de una versión anterior, la app los repone sola cada vez que se elige o se vuelve a conectar el disco (sólo escribe los que faltan o cambiaron). Después del primer backup también está **Kiopia Desk (portable).exe**. Con doble clic en **Abrir-KiopiaDesk.cmd**, en cualquier Windows 10/11, también Home, sin instalar nada ni permisos de administrador:
 
 1. Pide la contraseña o la clave de recuperación.
 2. Muestra las carpetas respaldadas en árbol, con los nombres reales.
@@ -202,11 +202,11 @@ En la carpeta `KopiaDesk_Backup` del disco quedan `Abrir-KopiaDesk.cmd`, `Recupe
 
 Al cerrar la ventana todo queda cifrado otra vez: en el disco nunca hay nada descifrado, así que no hace falta «bloquearlo»; basta con cerrar la ventana (o la app) y quitar el disco.
 
-Desde la consola, para recuperar todo de una vez: `powershell -ExecutionPolicy Bypass -File Recuperar-KopiaDesk.ps1 -Accion Recuperar -Destino D:\Recuperado` (opcional `-Carpeta Fotos`).
+Desde la consola, para recuperar todo de una vez: `powershell -ExecutionPolicy Bypass -File Recuperar-KiopiaDesk.ps1 -Accion Recuperar -Destino D:\Recuperado` (opcional `-Carpeta Fotos`).
 
-Si un PC de empresa bloquea PowerShell, el programa del disco no abre: ahí hay que usar Kopia Desk.
+Si un PC de empresa bloquea PowerShell, el programa del disco no abre: ahí hay que usar Kiopia Desk.
 
-### Formato (`lib/cifrado.js`, `lib/almacen.js`, `lib/Recuperar-KopiaDesk.ps1`)
+### Formato (`lib/cifrado.js`, `lib/almacen.js`, `lib/Recuperar-KiopiaDesk.ps1`)
 
 - **Algoritmos:** AES-256-CBC con PKCS7 + HMAC-SHA256 (cifrar y luego firmar) y PBKDF2-SHA256 con 600.000 vueltas para la contraseña (recomendación de OWASP). No son los más modernos (AES-GCM, Argon2), pero son los que trae el PowerShell 5.1 de cualquier Windows 10/11, y eso es lo que permite abrir el backup sin instalar nada.
 - **Claves:** una clave maestra al azar de 32 bytes, que nunca se guarda en claro. `cifrado.json` la guarda envuelta dos veces: con la contraseña y con la clave de recuperación (160 bits al azar). Cambiar la contraseña sólo vuelve a envolverla: no hay que recifrar nada y la clave de recuperación sigue sirviendo. De la maestra salen tres subclaves (cifrar, firmar y nombres).
@@ -262,7 +262,7 @@ Si cambiaba la fecha pero el hash de cabecera+cola (64 KB + 64 KB + tamaño) coi
 
 `manifest:save`, `saveContentIndex`, `sources:remember` y `settings:save` usaban `writeFileSync` directo; un corte dejaba un JSON truncado y `manifest:load` devolvía `{}` en silencio.
 
-**Arreglo aplicado:** todas esas escrituras (y los logs) pasan por `atomicWriteFileSync`: `archivo.kopia-tmp`, `fsync`, `rename`. Al cargar un manifiesto dañado se usa `.prev.json` y se avisa en el registro; si tampoco sirve, también se avisa. `.prev.json` solo se actualiza desde un manifiesto que se pudo leer, así un principal dañado nunca pisa el último respaldo bueno. Verificado en la app truncando un manifiesto en la USB.
+**Arreglo aplicado:** todas esas escrituras (y los logs) pasan por `atomicWriteFileSync`: `archivo.kiopia-tmp`, `fsync`, `rename`. Al cargar un manifiesto dañado se usa `.prev.json` y se avisa en el registro; si tampoco sirve, también se avisa. `.prev.json` solo se actualiza desde un manifiesto que se pudo leer, así un principal dañado nunca pisa el último respaldo bueno. Verificado en la app truncando un manifiesto en la USB.
 
 ### 5. La limpieza del journal puede borrar la única copia buena
 
@@ -270,7 +270,7 @@ Si cambiaba la fecha pero el hash de cabecera+cola (64 KB + 64 KB + tamaño) coi
 
 Si un archivo cambiado estaba a medio sobrescribir al cortarse, `checkJournals` lo borraba, y sin versionado no quedaba ni la versión anterior ni la nueva.
 
-**Arreglo aplicado:** con la copia a temporal + `rename`, lo que queda a medias es el `.kopia-tmp`. Los journals nuevos (`version: 2`) solo borran esos temporales y nunca tocan el destino. Los journals de versiones anteriores mantienen el comportamiento viejo, porque ahí el destino sí podía estar truncado. Test: *"problema 5: la única copia buena no debe borrarse"*; verificado en la app matando el proceso a mitad de copia.
+**Arreglo aplicado:** con la copia a temporal + `rename`, lo que queda a medias es el `.kiopia-tmp`. Los journals nuevos (`version: 2`) solo borran esos temporales y nunca tocan el destino. Los journals de versiones anteriores mantienen el comportamiento viejo, porque ahí el destino sí podía estar truncado. Test: *"problema 5: la única copia buena no debe borrarse"*; verificado en la app matando el proceso a mitad de copia.
 
 ### 6. Los handlers IPC confían en rutas enviadas por el renderer
 
@@ -280,8 +280,8 @@ Si un archivo cambiado estaba a medio sobrescribir al cortarse, `checkJournals` 
 
 - Discos destino: solo los devueltos por `listDrives`.
 - Orígenes (`fs:scan-directory`, `fs:hash-file`, tareas de copia): solo carpetas elegidas por diálogo, accesos rápidos, o guardadas en la configuración (que a su vez solo guarda orígenes autorizados).
-- Destinos de copia: dentro de `KopiaDesk_Backup` y fuera de `.kopia-data`; versiones solo dentro de `.kopia-data\versions`.
-- Restauración: `backupFullPath` dentro de `<disco>\KopiaDesk_Backup` y carpeta de destino elegida por diálogo.
+- Destinos de copia: dentro de `KiopiaDesk_Backup` y fuera de `.kiopia-data`; versiones solo dentro de `.kiopia-data\versions`.
+- Restauración: `backupFullPath` dentro de `<disco>\KiopiaDesk_Backup` y carpeta de destino elegida por diálogo.
 - Las rutas de `sources.json` del disco solo sirven para listar nombres y tamaños en Comparar, no para leer contenido.
 
 Verificado en la app: pedir el hash de `C:\Windows\win.ini`, escanear `C:\Windows`, usar un disco inexistente o restaurar a una carpeta no elegida se rechaza.
@@ -334,14 +334,14 @@ Verificado en la app: pedir el hash de `C:\Windows\win.ini`, escanear `C:\Window
 - **Metadatos no copiados:** ACLs, flujos de datos alternos (ADS), atributos (incluido sólo lectura).
 - ✅ **Preservación de fechas** al copiar y al restaurar.
 - **Suspensión o hibernación** del equipo durante un backup largo.
-- ✅ **Dos instancias de la app en el mismo equipo:** resuelto con instancia única (`requestSingleInstanceLock`). Pendiente: dos equipos usando el mismo disco a la vez (un archivo lock en `.kopia-data`).
+- ✅ **Dos instancias de la app en el mismo equipo:** resuelto con instancia única (`requestSingleInstanceLock`). Pendiente: dos equipos usando el mismo disco a la vez (un archivo lock en `.kiopia-data`).
 
 ### Restauración
 
 - **Conflictos:** en la restauración completa, un archivo existente en el destino se reemplaza (de forma atómica). Definir si sobrescribe, omite o pregunta.
 - ✅ **Verificación de hash** tras restaurar.
 - **Interfaz para versiones anteriores**, con lista por fecha y restauración a una carpeta elegida.
-- ✅ **Restauración sin la app** de un backup cifrado: Abrir-KopiaDesk.cmd y `LEEME-CIFRADO.txt` en el propio disco.
+- ✅ **Restauración sin la app** de un backup cifrado: Abrir-KiopiaDesk.cmd y `LEEME-CIFRADO.txt` en el propio disco.
 
 ### Retención y espacio
 
@@ -371,7 +371,7 @@ Verificado en la app: pedir el hash de `C:\Windows\win.ini`, escanear `C:\Window
   ```
 - **Navegación y ventanas nuevas bloqueadas:** `setWindowOpenHandler(() => ({ action: "deny" }))` y `will-navigate` cancelado.
 - **Rutas validadas en el proceso principal** (problema 6).
-- `safePath()` y `safeBackupPath()` impiden escribir fuera del destino y de `KopiaDesk_Backup`; `safeName()` sanitiza nombres.
+- `safePath()` y `safeBackupPath()` impiden escribir fuera del destino y de `KiopiaDesk_Backup`; `safeName()` sanitiza nombres.
 - `execFile` en vez de `exec`, sin shell. La letra de unidad se valida antes de interpolarla en PowerShell.
 - Límite de tamaño y validación de tipo al leer manifiestos para restaurar.
 - Los nombres de archivo se muestran con `textContent`, nunca con `innerHTML`.
@@ -420,7 +420,7 @@ Además de los tests de `lib/core.js`. ✅ = automatizado en `npm test`; 🔌 = 
 - ✅ **Sin la app** (`test/recuperar.test.js`, con el script copiado en el disco): recupera todo con nombres difíciles (tildes, apóstrofo, corchetes, &, %, emoji), rutas de más de 260 caracteres, un archivo de 9 MB y uno vacío, con sus fechas; con la clave de recuperación y desde la raíz del disco; sólo una carpeta; una contraseña equivocada no recupera nada; un archivo alterado o borrado se informa y los demás se recuperan; no pisa lo que ya existe.
 - ✅ Rendimiento del script con 50.000 archivos: abrir 0,1 s, leer el catálogo 0,6 s, nombres opacos 6 s.
 - ✅ FAT32: el límite de 4 GB cuenta lo que añade el cifrado.
-- Pendiente (con la app real, sobre una USB de pruebas y un disco virtual FAT32): cifrar desde el panel, backup, cerrar y abrir, cambiar la contraseña, restaurar; la ventana de Abrir-KopiaDesk.cmd (Ver, Sacar, Detener, cerrar con un archivo abierto) en este PC y en otro con Windows Home.
+- Pendiente (con la app real, sobre una USB de pruebas y un disco virtual FAT32): cifrar desde el panel, backup, cerrar y abrir, cambiar la contraseña, restaurar; la ventana de Abrir-KiopiaDesk.cmd (Ver, Sacar, Detener, cerrar con un archivo abierto) en este PC y en otro con Windows Home.
 - ✅ `test/disco-sistema.test.js`: 9 escenarios de disco del sistema y cambios de disco antes de expulsar.
 - 🔌 **Expulsar** con un USB real: con un archivo abierto en el USB, Windows lo impide y la app explica el motivo; sin nada abierto, se expulsa en menos de un segundo y la letra desaparece. Un disco virtual (no extraíble) no se expulsa.
 
@@ -477,7 +477,7 @@ Ordenada por prioridad.
 - Node.js (`fs`/`original-fs`, `crypto`, `zlib`, `child_process`)
 - HTML/CSS/JS sin frameworks
 - `node --test` para la suite de `lib/core.js`
-- PowerShell: módulo `Storage` para los discos; PowerShell 5.1 (.NET: AES, HMAC, PBKDF2 y WinForms) en `lib/Recuperar-KopiaDesk.ps1`, el programa que abre las copias cifradas sin la app
+- PowerShell: módulo `Storage` para los discos; PowerShell 5.1 (.NET: AES, HMAC, PBKDF2 y WinForms) en `lib/Recuperar-KiopiaDesk.ps1`, el programa que abre las copias cifradas sin la app
 
 ---
 

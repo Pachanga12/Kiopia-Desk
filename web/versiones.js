@@ -1,5 +1,5 @@
 "use strict";
-// Historia de Kopia Desk (sale de la colección de Música: Kopia Desk - funcionamiento).
+// Historia de Kiopia Desk (antes Kopia Desk; sale de la colección de Música: Kiopia Desk - funcionamiento).
 window.KD_VERSIONES = [
   {
     "v": "V0.1",
@@ -169,7 +169,7 @@ window.KD_VERSIONES = [
   },
   {
     "v": "V3.0",
-    "nombre": "La actual",
+    "nombre": "Copias cifradas",
     "fecha": "30-09-2026",
     "tipo": "App de escritorio · Electron 43",
     "resumen": "Copias cifradas propias que se abren en cualquier Windows, con o sin la app.",
@@ -178,6 +178,30 @@ window.KD_VERSIONES = [
       "Se cifra el contenido y también los nombres de archivos y carpetas: en la USB sólo se ven nombres sin sentido como datos\\3f\\9a1c….kdc.",
       "Se activa en el panel del disco con una contraseña. Kopia Desk muestra una sola vez la clave de recuperación y no deja seguir hasta confirmar que se guardó fuera de la USB.",
       "Para copiar o restaurar se abre con la contraseña (o la clave); Cerrar ahora y Cambiar contraseña… están en el mismo panel."
+    ]
+  }
+,
+  {
+    "v": "V3.0.1",
+    "nombre": "",
+    "fecha": "30-09-2026",
+    "tipo": "App de escritorio · Electron 43",
+    "resumen": "Retoques de comodidad sobre la V3.0.",
+    "puntos": [
+      "Restaurar y Comparar abren las copias cifradas ahí mismo, con la contraseña o la clave de recuperación, sin volver al panel del disco en Backup.",
+      "En Comparar, el botón «Cambiar» ya no se sale de su recuadro."
+    ]
+  },
+  {
+    "v": "V4.0",
+    "nombre": "La actual",
+    "fecha": "30-09-2026",
+    "tipo": "App de escritorio · Electron 43",
+    "resumen": "Kopia Desk pasa a llamarse Kiopia Desk, para no confundirse con Kopia (kopia.io).",
+    "puntos": [
+      "Nuevo nombre en la app, el instalador, la versión portable, la página web y GitHub (Pachanga12/Kiopia-Desk).",
+      "En la USB, la carpeta del backup pasa a KiopiaDesk_Backup, con Abrir-KiopiaDesk.cmd, Recuperar-KiopiaDesk.ps1 y Kiopia Desk (portable).exe.",
+      "Al instalarla sobre la v3 conserva la configuración y cambia el acceso directo del escritorio por el nuevo."
     ]
   }
 ];

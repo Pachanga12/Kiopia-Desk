@@ -1,7 +1,7 @@
 "use strict";
 
-// Recuperar un backup cifrado SIN Kopia Desk: el backup lo hace Node (las mismas
-// piezas que usa la app) y lo abre el Recuperar-KopiaDesk.ps1 que quedó copiado
+// Recuperar un backup cifrado SIN Kiopia Desk: el backup lo hace Node (las mismas
+// piezas que usa la app) y lo abre el Recuperar-KiopiaDesk.ps1 que quedó copiado
 // en el propio disco, con PowerShell, como lo haría alguien en otro equipo.
 
 const test = require("node:test");
@@ -15,7 +15,7 @@ const core = require("../lib/core.js");
 const almacen = require("../lib/almacen.js");
 
 const soloWindows = { skip: process.platform !== "win32" && "requiere Windows (PowerShell)" };
-const SCRIPT = path.join(__dirname, "..", "lib", "Recuperar-KopiaDesk.ps1");
+const SCRIPT = path.join(__dirname, "..", "lib", "Recuperar-KiopiaDesk.ps1");
 const PASSWORD = "Contraseña Ñandú €9!";
 
 // Nombres difíciles: tildes, eñes, apóstrofo, corchetes, &, %, emoji.
@@ -52,20 +52,20 @@ async function hacerBackup(t) {
       fs.writeFileSync(full, data);
       const when = new Date(Date.UTC(2020, 0, 1 + i++, 10, 20, 30));
       fs.utimesSync(full, when, when);
-      const { relative } = almacen.dataRelative(mk, "KopiaDesk_Backup/" + core.safeName(fuente) + "/" + rel);
+      const { relative } = almacen.dataRelative(mk, "KiopiaDesk_Backup/" + core.safeName(fuente) + "/" + rel);
       const r = await core.copyOneTask({ srcPath: full, destRoot: usb, relativeDest: relative, dedup: true }, ctx);
       manifest[rel] = { path: rel, size: data.length, lastModified: when.getTime(), hash: r.hash };
       fechas[fuente + "/" + rel] = when.getTime();
     }
     almacen.saveManifest(usb, mk, fuente, manifest);
   }
-  return { dir, usb, mk, recoveryKey, fechas, root: path.join(usb, "KopiaDesk_Backup") };
+  return { dir, usb, mk, recoveryKey, fechas, root: path.join(usb, "KiopiaDesk_Backup") };
 }
 
 // Ejecuta el script COPIADO en el disco, sin ventana. `backup` es lo que se
-// le pasa en -Backup (la carpeta KopiaDesk_Backup o la raíz del disco).
+// le pasa en -Backup (la carpeta KiopiaDesk_Backup o la raíz del disco).
 function recuperar(root, destino, secreto, extra = [], backup = root) {
-  const script = path.join(root, "Recuperar-KopiaDesk.ps1");
+  const script = path.join(root, "Recuperar-KiopiaDesk.ps1");
   const r = spawnSync(
     "powershell.exe",
     ["-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script, "-Accion", "Recuperar", "-Backup", backup, "-Destino", destino, "-Secreto", secreto, ...extra],
@@ -79,7 +79,7 @@ const leer = (p) => fs.readFileSync("\\\\?\\" + p);
 
 test("sin la app: el script del disco recupera todo, con sus nombres, carpetas, contenido y fechas", soloWindows, async (t) => {
   const b = await hacerBackup(t);
-  assert.ok(fs.existsSync(path.join(b.root, "Abrir-KopiaDesk.cmd")), "queda el lanzador de doble clic");
+  assert.ok(fs.existsSync(path.join(b.root, "Abrir-KiopiaDesk.cmd")), "queda el lanzador de doble clic");
   const destino = path.join(b.dir, "Recuperado");
   const r = recuperar(b.root, destino, PASSWORD);
   assert.equal(r.status, 0, r.out + r.err);
@@ -99,7 +99,7 @@ test("sin la app: el script del disco recupera todo, con sus nombres, carpetas, 
   (function buscar(d) {
     for (const e of fs.readdirSync("\\\\?\\" + d, { withFileTypes: true })) {
       if (e.isDirectory()) buscar(path.join(d, e.name));
-      else if (e.name.endsWith(".kopia-tmp")) restos.push(e.name);
+      else if (e.name.endsWith(".kiopia-tmp")) restos.push(e.name);
     }
   })(destino);
   assert.deepEqual(restos, [], "no quedan temporales");
@@ -137,7 +137,7 @@ test("sin la app: un archivo alterado o borrado se informa, no se entrega, y los
   assert.equal(r.status, 1, "termina avisando que hubo fallos");
   assert.deepEqual(r.resumen, { recuperados: 3, total: 5, fallidos: 2, faltan: 1 });
   assert.equal(fs.existsSync(path.join(destino, "Fotos", "año 2025", "niño's día.jpg")), false, "lo alterado no se entrega");
-  assert.equal(fs.existsSync(path.join(destino, "Fotos", "año 2025", "niño's día.jpg.kopia-tmp")), false);
+  assert.equal(fs.existsSync(path.join(destino, "Fotos", "año 2025", "niño's día.jpg.kiopia-tmp")), false);
   assert.ok(leer(path.join(destino, "Fotos", "grande.bin")).equals(ARCHIVOS.Fotos["grande.bin"]));
 });
 

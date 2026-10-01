@@ -18,7 +18,7 @@ function preparar() {
   const src = path.join(dir, "origen");
   const dest = path.join(dir, "destino");
   fs.mkdirSync(src);
-  fs.mkdirSync(path.join(dest, "KopiaDesk_Backup", "datos"), { recursive: true });
+  fs.mkdirSync(path.join(dest, "KiopiaDesk_Backup", "datos"), { recursive: true });
   return { dir, src, dest, mk: crypto.randomBytes(32) };
 }
 
@@ -30,12 +30,12 @@ test("copia cifrada y verificada: en el disco no está el contenido; al restaura
   fs.writeFileSync(origen, data);
   const fecha = new Date("2024-05-06T07:08:09Z");
   fs.utimesSync(origen, fecha, fecha);
-  const blob = path.join(dest, "KopiaDesk_Backup", "datos", "ab.kdc");
+  const blob = path.join(dest, "KiopiaDesk_Backup", "datos", "ab.kdc");
   const r = await core.encryptFileVerified(mk, origen, blob);
   assert.equal(r.hash, sha(origen));
   assert.equal(fs.statSync(blob).size, data.length + 20 + 32 + (16 - (data.length % 16)));
   assert.ok(!fs.readFileSync(blob).includes(data.subarray(1000, 1064)), "el contenido no aparece en claro");
-  assert.equal(fs.existsSync(blob + ".kopia-tmp"), false, "no quedan temporales");
+  assert.equal(fs.existsSync(blob + ".kiopia-tmp"), false, "no quedan temporales");
   const restaurado = path.join(dir, "restaurado.jpg");
   await core.restoreEncryptedVerified(mk, blob, restaurado, r.hash, fecha.getTime());
   assert.ok(fs.readFileSync(restaurado).equals(data));
@@ -54,7 +54,7 @@ test("un archivo cifrado alterado o con otro contenido no se restaura (y no deja
   fs.writeFileSync(blob, b);
   await assert.rejects(core.restoreEncryptedVerified(mk, blob, path.join(dir, "r2"), hash), (e) => e.code === "BACKUP_CORRUPTED");
   assert.equal(fs.existsSync(path.join(dir, "r1")) || fs.existsSync(path.join(dir, "r2")), false);
-  assert.equal(fs.existsSync(path.join(dir, "r2.kopia-tmp")), false);
+  assert.equal(fs.existsSync(path.join(dir, "r2.kiopia-tmp")), false);
 });
 
 test("copyOneTask cifrada: deduplica contenido idéntico con un enlace y el índice apunta al archivo cifrado", async (t) => {
@@ -64,7 +64,7 @@ test("copyOneTask cifrada: deduplica contenido idéntico con un enlace y el índ
   fs.writeFileSync(path.join(src, "a.bin"), data);
   fs.writeFileSync(path.join(src, "copia de a.bin"), data);
   const ctx = { index: new core.ContentIndex(), pendingWrites: new Map(), masterKey: mk, madeDirs: new Set() };
-  const rel = (n) => "KopiaDesk_Backup/datos/" + cifrado.opaqueName(mk, "archivo", "origen/" + n);
+  const rel = (n) => "KiopiaDesk_Backup/datos/" + cifrado.opaqueName(mk, "archivo", "origen/" + n);
   const r1 = await core.copyOneTask({ srcPath: path.join(src, "a.bin"), destRoot: dest, relativeDest: rel("a.bin"), dedup: true }, ctx);
   const r2 = await core.copyOneTask({ srcPath: path.join(src, "copia de a.bin"), destRoot: dest, relativeDest: rel("copia de a.bin"), dedup: true }, ctx);
   assert.equal(r1.dedup, false);
@@ -83,9 +83,9 @@ test("versión anterior cifrada: se conserva intacta aunque el archivo se sobres
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   const origen = path.join(src, "doc.txt");
   fs.writeFileSync(origen, "versión 1");
-  const blob = path.join(dest, "KopiaDesk_Backup", "datos", "doc.kdc");
+  const blob = path.join(dest, "KiopiaDesk_Backup", "datos", "doc.kdc");
   const v1 = await core.encryptFileVerified(mk, origen, blob);
-  const version = path.join(dest, "KopiaDesk_Backup", ".kopia-data", "versions", "sello", "v.kdc");
+  const version = path.join(dest, "KiopiaDesk_Backup", ".kiopia-data", "versions", "sello", "v.kdc");
   await core.preserveEncryptedVersion(blob, version);
   fs.writeFileSync(origen, "versión 2, más larga");
   await core.encryptFileVerified(mk, origen, blob);
@@ -101,7 +101,7 @@ test("FAT32: el límite de 4 GB cuenta lo que añade el cifrado", async (t) => {
   const { dir, src, dest, mk } = preparar();
   t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
   fs.writeFileSync(path.join(src, "casi.bin"), Buffer.alloc(1000));
-  const task = { srcPath: path.join(src, "casi.bin"), destRoot: dest, relativeDest: "KopiaDesk_Backup/datos/x.kdc", dedup: false };
+  const task = { srcPath: path.join(src, "casi.bin"), destRoot: dest, relativeDest: "KiopiaDesk_Backup/datos/x.kdc", dedup: false };
   // Un disco cuyo máximo fuera 1030 bytes: el original (1000) cabría, cifrado (1000 + 68) no.
   await assert.rejects(core.copyOneTask(task, { masterKey: mk, maxFileSize: 1030 }), (e) => e.code === "FILE_TOO_LARGE");
   await core.copyOneTask(task, { masterKey: null, maxFileSize: 1030 });
@@ -117,9 +117,9 @@ test("repetir el backup de dos archivos ya enlazados no deja temporales (en Linu
   for (let vuelta = 0; vuelta < 2; vuelta++) {
     const ctx = { index, pendingWrites: new Map(), masterKey: mk, madeDirs: new Set() };
     for (const n of ["a", "b"]) {
-      await core.copyOneTask({ srcPath: path.join(src, n), destRoot: dest, relativeDest: "KopiaDesk_Backup/datos/" + n + ".kdc", dedup: true }, ctx);
+      await core.copyOneTask({ srcPath: path.join(src, n), destRoot: dest, relativeDest: "KiopiaDesk_Backup/datos/" + n + ".kdc", dedup: true }, ctx);
     }
   }
-  const datos = fs.readdirSync(path.join(dest, "KopiaDesk_Backup", "datos"));
-  assert.deepEqual(datos.sort(), ["a.kdc", "b.kdc"], "sin .kopia-tmp");
+  const datos = fs.readdirSync(path.join(dest, "KiopiaDesk_Backup", "datos"));
+  assert.deepEqual(datos.sort(), ["a.kdc", "b.kdc"], "sin .kiopia-tmp");
 });

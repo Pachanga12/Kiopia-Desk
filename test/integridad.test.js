@@ -51,7 +51,7 @@ function tempDirs(t, count) {
 // --- isInside ----------------------------------------------------------------
 
 test("isInside acepta subrutas y la propia carpeta, sin distinguir mayúsculas", () => {
-  const root = path.resolve("D:/KopiaDesk_Backup");
+  const root = path.resolve("D:/KiopiaDesk_Backup");
   assert.ok(isInside(root, path.join(root, "Fotos", "a.jpg")));
   assert.ok(isInside(root, root));
   assert.ok(isInside(root, root.toUpperCase()));
@@ -244,17 +244,17 @@ test("writeVersionAtomic no deja temporales ni destino a medias si el origen no 
 });
 
 // Hallazgo de la PoC de resiliencia: backup:copy-versions (main.js) no
-// planificaba estas escrituras en el journal, asi que un ".kopia-tmp" huerfano
+// planificaba estas escrituras en el journal, asi que un ".kiopia-tmp" huerfano
 // de una version interrumpida nunca lo veian journal:peek/journal:check (solo
-// miran la carpeta de journal, no .kopia-data/versions). El arreglo hace que
+// miran la carpeta de journal, no .kiopia-data/versions). El arreglo hace que
 // main.js llame a startJournal/appendJournalDone con la ruta REAL final
-// (bajo .kopia-data/versions/<...>.gz), no con la ruta de origen: esto prueba
+// (bajo .kiopia-data/versions/<...>.gz), no con la ruta de origen: esto prueba
 // que, planificada asi, el temporal huerfano SI se detecta y se limpia solo.
 test("hallazgo PoC: una version planificada en el journal con su ruta final limpia su temporal huerfano", (t) => {
   const [destRoot] = tempDirs(t, 1);
-  const target = path.join(destRoot, "KopiaDesk_Backup", ".kopia-data", "versions", "Docs", "a.bin.gz");
+  const target = path.join(destRoot, "KiopiaDesk_Backup", ".kiopia-data", "versions", "Docs", "a.bin.gz");
   const journalRelative = path.relative(destRoot, target);
-  const jDir = path.join(destRoot, "KopiaDesk_Backup", ".kopia-data", "journal");
+  const jDir = path.join(destRoot, "KiopiaDesk_Backup", ".kiopia-data", "journal");
 
   startJournal(jDir, [{ relativeDest: journalRelative }]);
   fs.mkdirSync(path.dirname(target), { recursive: true });
@@ -340,7 +340,7 @@ test("problema 2: sobrescribir un archivo enlazado no cambia el contenido de sus
 // --- Problema 1: índice de dedup obsoleto -------------------------------------------
 
 test("ContentIndex.record olvida los hashes viejos de una ruta sobrescrita", () => {
-  const rel = path.join("KopiaDesk_Backup", "F", "A.txt");
+  const rel = path.join("KiopiaDesk_Backup", "F", "A.txt");
   const index = new ContentIndex({ hashX: rel }); // formato legado: hash -> "ruta"
   assert.equal(index.get("hashX").path, rel);
   index.record("hashY", { path: rel, size: 1 });
@@ -357,24 +357,24 @@ test("problema 1: A con X, A cambia a Y, aparece B con X → B termina con X", a
 
   const srcA = path.join(srcDir, "A.txt");
   fs.writeFileSync(srcA, "contenido X");
-  await run(srcA, "KopiaDesk_Backup/F/A.txt");
+  await run(srcA, "KiopiaDesk_Backup/F/A.txt");
 
   fs.writeFileSync(srcA, "contenido Y"); // mismo tamaño, otro contenido
-  await run(srcA, "KopiaDesk_Backup/F/A.txt");
+  await run(srcA, "KiopiaDesk_Backup/F/A.txt");
 
   const srcB = path.join(srcDir, "B.txt");
   fs.writeFileSync(srcB, "contenido X");
-  await run(srcB, "KopiaDesk_Backup/F/B.txt");
+  await run(srcB, "KiopiaDesk_Backup/F/B.txt");
 
-  assert.equal(fs.readFileSync(path.join(destRoot, "KopiaDesk_Backup/F/B.txt"), "utf-8"), "contenido X");
-  assert.equal(fs.readFileSync(path.join(destRoot, "KopiaDesk_Backup/F/A.txt"), "utf-8"), "contenido Y");
+  assert.equal(fs.readFileSync(path.join(destRoot, "KiopiaDesk_Backup/F/B.txt"), "utf-8"), "contenido X");
+  assert.equal(fs.readFileSync(path.join(destRoot, "KiopiaDesk_Backup/F/A.txt"), "utf-8"), "contenido Y");
 });
 
 test("problema 1: un índice legado que apunta a contenido cambiado no se usa para enlazar", async (t) => {
   const [destRoot, srcDir] = tempDirs(t, 2);
   // Índice escrito por la versión anterior: X -> A, pero A ya contiene Y.
-  const relA = path.join("KopiaDesk_Backup", "F", "A.txt");
-  fs.mkdirSync(path.join(destRoot, "KopiaDesk_Backup", "F"), { recursive: true });
+  const relA = path.join("KiopiaDesk_Backup", "F", "A.txt");
+  fs.mkdirSync(path.join(destRoot, "KiopiaDesk_Backup", "F"), { recursive: true });
   fs.writeFileSync(path.join(destRoot, relA), "contenido Y");
   const srcB = path.join(srcDir, "B.txt");
   fs.writeFileSync(srcB, "contenido X");
@@ -382,12 +382,12 @@ test("problema 1: un índice legado que apunta a contenido cambiado no se usa pa
   const index = new ContentIndex({ [hashX]: relA });
 
   const result = await copyOneTask(
-    { srcPath: srcB, destRoot, relativeDest: "KopiaDesk_Backup/F/B.txt", dedup: true },
+    { srcPath: srcB, destRoot, relativeDest: "KiopiaDesk_Backup/F/B.txt", dedup: true },
     { index, pendingWrites: new Map() }
   );
   assert.equal(result.dedup, false, "no debe enlazar a un archivo con otro contenido");
-  assert.equal(fs.readFileSync(path.join(destRoot, "KopiaDesk_Backup/F/B.txt"), "utf-8"), "contenido X");
-  assert.equal(index.get(hashX).path, path.join("KopiaDesk_Backup", "F", "B.txt"));
+  assert.equal(fs.readFileSync(path.join(destRoot, "KiopiaDesk_Backup/F/B.txt"), "utf-8"), "contenido X");
+  assert.equal(index.get(hashX).path, path.join("KiopiaDesk_Backup", "F", "B.txt"));
 });
 
 test("dedup: dos archivos iguales en el mismo lote se guardan una sola vez (hardlink)", async (t) => {
@@ -399,18 +399,18 @@ test("dedup: dos archivos iguales en el mismo lote se guardan una sola vez (hard
   const results = await Promise.all(
     names.map((name) =>
       copyOneTask(
-        { srcPath: path.join(srcDir, name), destRoot, relativeDest: "KopiaDesk_Backup/F/" + name, dedup: true },
+        { srcPath: path.join(srcDir, name), destRoot, relativeDest: "KiopiaDesk_Backup/F/" + name, dedup: true },
         { index, pendingWrites }
       )
     )
   );
   assert.equal(results.filter((r) => r.dedup).length, 1);
-  assert.equal(fs.statSync(path.join(destRoot, "KopiaDesk_Backup/F/uno.txt")).nlink, 2);
+  assert.equal(fs.statSync(path.join(destRoot, "KiopiaDesk_Backup/F/uno.txt")).nlink, 2);
 });
 
 test("copyOneTask sin dedup igual mantiene el índice al día", async (t) => {
   const [destRoot, srcDir] = tempDirs(t, 2);
-  const rel = path.join("KopiaDesk_Backup", "F", "A.txt");
+  const rel = path.join("KiopiaDesk_Backup", "F", "A.txt");
   const index = new ContentIndex({ hashViejo: rel });
   const src = path.join(srcDir, "A.txt");
   fs.writeFileSync(src, "nuevo");
@@ -424,10 +424,10 @@ test("copyOneTask rechaza archivos más grandes que el límite del sistema de ar
   const src = path.join(destRoot, "grande.bin");
   fs.writeFileSync(src, "0123456789");
   await assert.rejects(
-    copyOneTask({ srcPath: src, destRoot, relativeDest: "KopiaDesk_Backup/g.bin" }, { maxFileSize: 5 }),
+    copyOneTask({ srcPath: src, destRoot, relativeDest: "KiopiaDesk_Backup/g.bin" }, { maxFileSize: 5 }),
     (err) => err.code === "FILE_TOO_LARGE"
   );
-  assert.ok(!fs.existsSync(path.join(destRoot, "KopiaDesk_Backup", "g.bin")));
+  assert.ok(!fs.existsSync(path.join(destRoot, "KiopiaDesk_Backup", "g.bin")));
 });
 
 // --- Hallazgo PoC: content-index.json sólo se guardaba al final del lote -------
@@ -458,7 +458,7 @@ test("guardar el indice cada N archivos (no sólo al final) acota, en vez de per
   for (const name of ["A.bin", "B.bin", "C.bin"]) {
     const src = path.join(srcDir, name);
     fs.writeFileSync(src, "contenido de " + name);
-    await copyOneTask({ srcPath: src, destRoot, relativeDest: "KopiaDesk_Backup/Docs/" + name, dedup: true }, { index, pendingWrites });
+    await copyOneTask({ srcPath: src, destRoot, relativeDest: "KiopiaDesk_Backup/Docs/" + name, dedup: true }, { index, pendingWrites });
     copied++;
     if (copied % N === 0) saveIndex(indexPath, index); // el guardado periodico del arreglo
   }
@@ -475,7 +475,7 @@ test("guardar el indice cada N archivos (no sólo al final) acota, en vez de per
   // Y lo mas importante: los 3 archivos siguen completos en el disco pase lo
   // que pase con el indice — perder una entrada del indice nunca pierde datos.
   for (const name of ["A.bin", "B.bin", "C.bin"]) {
-    assert.ok(fs.existsSync(path.join(destRoot, "KopiaDesk_Backup/Docs/" + name)));
+    assert.ok(fs.existsSync(path.join(destRoot, "KiopiaDesk_Backup/Docs/" + name)));
   }
 });
 
@@ -526,11 +526,11 @@ test("createJournalWriter junta las líneas y las escribe por lotes (y al final 
 
 test("diario por lotes: un corte con líneas sin escribir no borra archivos terminados, sólo temporales", (t) => {
   const [destRoot] = tempDirs(t, 1);
-  const journalDir = path.join(destRoot, ".kopia-data", "journal");
-  const rels = ["KopiaDesk_Backup/D/a.txt", "KopiaDesk_Backup/D/b.txt", "KopiaDesk_Backup/D/c.txt"];
+  const journalDir = path.join(destRoot, ".kiopia-data", "journal");
+  const rels = ["KiopiaDesk_Backup/D/a.txt", "KiopiaDesk_Backup/D/b.txt", "KiopiaDesk_Backup/D/c.txt"];
   const fp = startJournal(journalDir, rels.map((r) => ({ relativeDest: r })));
   const w = createJournalWriter(fp, { maxLines: 50, maxMs: 60000 });
-  fs.mkdirSync(path.join(destRoot, "KopiaDesk_Backup", "D"), { recursive: true });
+  fs.mkdirSync(path.join(destRoot, "KiopiaDesk_Backup", "D"), { recursive: true });
   // a y b terminaron (renombrados) pero su línea quedó en memoria; c quedó a medias.
   fs.writeFileSync(path.join(destRoot, rels[0]), "a completo");
   fs.writeFileSync(path.join(destRoot, rels[1]), "b completo");
