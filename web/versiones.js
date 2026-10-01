@@ -207,12 +207,23 @@ window.KD_VERSIONES = [
 ,
   {
     "v": "V4.0.1",
-    "nombre": "La actual",
+    "nombre": "",
     "fecha": "30-09-2026",
     "tipo": "App de escritorio · Electron 43",
     "resumen": "Retoque: los botones del disco ya no se pierden justo después de un backup.",
     "puntos": [
       "Al terminar un backup la app vuelve a leer los discos (para poner al día el espacio libre). Si en ese segundo se pulsaba «Cerrar ahora», «Abrir» o «Cambiar contraseña…», no pasaba nada; ahora espera a que termine y lo hace."
+    ]
+  }
+,
+  {
+    "v": "V4.0.2",
+    "nombre": "La actual",
+    "fecha": "01-10-2026",
+    "tipo": "App de escritorio · Electron 43",
+    "resumen": "Retoque: el tutorial ya no parpadea al cambiar de paso.",
+    "puntos": [
+      "Al mostrar cada paso, la tarjeta del tutorial aparecía un instante en la esquina de la ventana antes de ir a su sitio. Ahora se coloca en su sitio desde el principio."
     ]
   }
 ];

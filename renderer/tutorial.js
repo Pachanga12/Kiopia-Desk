@@ -124,7 +124,9 @@
     els.next.textContent = index === current.steps.length - 1 ? "Empezar" : "Siguiente";
     const target = resolveTarget(step);
     if (target) target.scrollIntoView({ block: "nearest", inline: "nearest" });
-    // Tras el desplazamiento, se coloca el recuadro (dos cuadros: el scroll es inmediato).
+    // Se coloca ya (sin un instante con la tarjeta en la esquina) y otra vez tras
+    // el desplazamiento, por si cambió algo (dos cuadros: el scroll es inmediato).
+    place();
     requestAnimationFrame(() => requestAnimationFrame(place));
     els.next.focus();
   }
