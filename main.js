@@ -495,6 +495,22 @@ async function assertDestVolumeUnchanged(destKey, expectedVolumeId) {
   if (serial !== null) verifiedSerials.set(expectedVolumeId, serial);
 }
 
+// A mitad de una copia grande, si el USB se desconecta del todo (no uno
+// distinto con la misma letra, sino que ya no hay nada), assertDestVolumeUnchanged
+// no lo nota: driveIdentityChanged no puede confirmar "cambió" cuando el disco
+// ya no aparece en la lista (a propósito, ver su comentario), así que cada
+// archivo pendiente fallaría uno por uno con mensajes confusos ("ya no existe en
+// el origen", hablando en realidad del destino). Esto comprueba directo si la
+// raíz del destino sigue respondiendo, para cortar la copia con un solo aviso claro.
+async function destRootGone(destKey) {
+  try {
+    await fs.promises.stat(destKey);
+    return false;
+  } catch {
+    return true;
+  }
+}
+
 function allowSource(p) {
   if (typeof p === "string" && p) allowed.sources.add(pathKey(p));
 }
@@ -1044,6 +1060,7 @@ ipcMain.handle("backup:copy-files", async (event, tasks, options = {}) => {
   const progress = progressSender(event, "backup", total);
   let indexSavedAt = Date.now();
   let bytesDone = 0;
+  let destinationGone = false;
 
   async function copyOne(task) {
     try {
@@ -1060,6 +1077,7 @@ ipcMain.handle("backup:copy-files", async (event, tasks, options = {}) => {
       progress(copied, task.logicalDest, bytesDone);
     } catch (err) {
       errors.push({ file: task.logicalDest, error: describeCopyError(err, task.logicalDest), code: err.code });
+      if (!destinationGone && (await destRootGone(destKey))) destinationGone = true;
     }
   }
 
@@ -1068,20 +1086,47 @@ ipcMain.handle("backup:copy-files", async (event, tasks, options = {}) => {
   const knownSizes = validTasks.filter((t) => Number.isFinite(t.size));
   const avgSize = knownSizes.length ? knownSizes.reduce((s, t) => s + t.size, 0) / knownSizes.length : 0;
   const adaptive = concurrency === 1 && avgSize > 0 && avgSize < 2 * 1024 * 1024;
-  const run = await runTasks(validTasks, copyOne, { concurrency, adaptive, shouldStop: () => isCancelled(options.opId) });
+  const run = await runTasks(validTasks, copyOne, {
+    concurrency,
+    adaptive,
+    shouldStop: () => isCancelled(options.opId) || destinationGone,
+  });
   progress.flush();
   journal.flush();
 
-  saveContentIndex(destKey, ctx.index, masterKey);
+  // El disco se desconectó a mitad de la copia: en vez de dejar un error por
+  // cada archivo que no llegó a intentarse o falló (confusos: hablan del
+  // origen cuando el problema es que el destino ya no está), un solo aviso
+  // claro. Los que ya se habían copiado y verificado (`done`) siguen contando.
+  if (destinationGone) {
+    errors.length = 0;
+    errors.push({
+      file: "",
+      error: "El disco de backup ya no está conectado: se detuvo la copia para no perder ni mezclar archivos. Vuelve a conectarlo y repite el backup.",
+      code: "DEST_GONE",
+    });
+  } else {
+    saveContentIndex(destKey, ctx.index, masterKey);
+  }
 
   // Con copia a temporal + rename, un error sólo puede dejar temporales: se
-  // limpian ahora mismo y el journal ya no hace falta.
-  if (journalPath) {
+  // limpian ahora mismo y el journal ya no hace falta (si el disco ya no está,
+  // ni intentarlo).
+  if (journalPath && !destinationGone) {
     checkJournals(journalDir(destKey), destKey);
     finishJournal(journalPath);
   }
 
-  return { copied, errors, deduped, done, concurrency: run.concurrency, probe: run.probe, stopped: run.stopped };
+  return {
+    copied,
+    errors,
+    deduped,
+    done,
+    concurrency: run.concurrency,
+    probe: run.probe,
+    stopped: run.stopped || destinationGone,
+    destinationGone,
+  };
 });
 
 // --- Copia de versiones anteriores (comprimidas con gzip) ------------------
@@ -1148,11 +1193,12 @@ ipcMain.handle("backup:copy-versions", async (event, tasks, options = {}) => {
 
   let copied = 0;
   let stopped = false;
+  let destinationGone = false;
   let bytesDone = 0;
   const saved = []; // versiones cifradas guardadas: { stamp, logical, relative }
   const progress = progressSender(event, "versions", writableTasks.length);
   for (const task of writableTasks) {
-    if (isCancelled(options.opId)) {
+    if (isCancelled(options.opId) || destinationGone) {
       stopped = true;
       break;
     }
@@ -1169,26 +1215,39 @@ ipcMain.handle("backup:copy-versions", async (event, tasks, options = {}) => {
       progress(copied, task.relativeDest, bytesDone);
     } catch (err) {
       errors.push({ file: String(task.relativeDest), error: err.message });
+      if (!destinationGone && (await destRootGone(destKey))) destinationGone = true;
     }
   }
 
   progress.flush();
   journal.flush();
-  if (masterKey) {
-    for (const stamp of new Set(saved.map((v) => v.stamp))) {
-      try {
-        almacen.recordVersions(destKey, masterKey, stamp, saved.filter((v) => v.stamp === stamp));
-      } catch (err) {
-        errors.push({ file: "versions/" + stamp, error: "No se pudo guardar el índice de versiones: " + err.message });
+
+  // Mismo caso que en backup:copy-files: un solo aviso claro en vez de uno
+  // confuso por archivo.
+  if (destinationGone) {
+    errors.length = 0;
+    errors.push({
+      file: "",
+      error: "El disco de backup ya no está conectado: se detuvo la copia para no perder ni mezclar archivos. Vuelve a conectarlo y repite el backup.",
+      code: "DEST_GONE",
+    });
+  } else {
+    if (masterKey) {
+      for (const stamp of new Set(saved.map((v) => v.stamp))) {
+        try {
+          almacen.recordVersions(destKey, masterKey, stamp, saved.filter((v) => v.stamp === stamp));
+        } catch (err) {
+          errors.push({ file: "versions/" + stamp, error: "No se pudo guardar el índice de versiones: " + err.message });
+        }
       }
     }
-  }
-  if (journalPath) {
-    checkJournals(journalDir(destKey), destKey);
-    finishJournal(journalPath);
+    if (journalPath) {
+      checkJournals(journalDir(destKey), destKey);
+      finishJournal(journalPath);
+    }
   }
 
-  return { copied, skipped, errors, stopped };
+  return { copied, skipped, errors, stopped: stopped || destinationGone, destinationGone };
 });
 
 // Último backup en ese disco (fecha, cuántos archivos), o null si no hay.
@@ -1225,9 +1284,19 @@ ipcMain.handle("backup:ensure-portable", async (event, destRoot, destVolumeId) =
   const key = await assertDestRoot(destRoot);
   await assertDestVolumeUnchanged(key, destVolumeId);
   const source = portableSource();
-  if (source) event.sender.send("progress", { phase: "portable", current: 0, total: 1, file: almacen.PORTABLE_NAME });
+  // El aviso de progreso se arma recién si de verdad hay que copiar (con el
+  // tamaño del archivo como total, en bytes): así se ve avanzar de verdad en
+  // vez de quedarse en "0 de 1" todo lo que tarda la copia (ver
+  // copyFileWithProgress en almacen.js).
+  let progress = null;
+  const onProgress = (done, total) => {
+    if (!progress) progress = progressSender(event, "portable", total);
+    progress(done, almacen.PORTABLE_NAME, done);
+  };
   try {
-    return await almacen.ensurePortableApp(key, source);
+    const result = await almacen.ensurePortableApp(key, source, onProgress);
+    if (progress) progress.flush();
+    return result;
   } catch (err) {
     return { copied: false, reason: "error", error: err.message };
   }

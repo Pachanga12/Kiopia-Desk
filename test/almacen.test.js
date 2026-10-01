@@ -255,3 +255,23 @@ test("Kiopia Desk portable: se copia de solo lectura, no se repite si está al d
   assert.equal(fs.readdirSync(path.join(dest, "KiopiaDesk_Backup")).some((n) => n.endsWith(".kiopia-tmp")), false);
   assert.equal(almacen.hasPlainBackup(dest), false, "la portable sola no cuenta como backup");
 });
+
+test("Kiopia Desk portable: avisa el progreso real en bytes (no se queda en 0 mientras copia)", async (t) => {
+  const { dir, dest } = disco(t);
+  const src = path.join(dir, "KiopiaDesk-Portable.exe");
+  // Más grande que un bloque (8 MB) para forzar varias vueltas del copiado.
+  const size = 10 * 1024 * 1024 + 12345;
+  fs.writeFileSync(src, crypto.randomBytes(size));
+  const target = path.join(dest, "KiopiaDesk_Backup", almacen.PORTABLE_NAME);
+  const avisos = [];
+  const r = await almacen.ensurePortableApp(dest, src, (done, total) => avisos.push([done, total]));
+  assert.equal(r.copied, true);
+  assert.ok(fs.readFileSync(target).equals(fs.readFileSync(src)), "copia íntegra");
+  assert.ok(avisos.length >= 2, "avisó más de una vez (no sólo al terminar)", avisos.length);
+  assert.ok(avisos.every(([done, total]) => total === size), "el total avisado es siempre el tamaño real");
+  assert.ok(
+    avisos.every(([done], i) => i === 0 || done >= avisos[i - 1][0]),
+    "lo avisado nunca retrocede"
+  );
+  assert.equal(avisos[avisos.length - 1][0], size, "el último aviso llega al tamaño completo");
+});

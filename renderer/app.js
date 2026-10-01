@@ -2552,12 +2552,13 @@ async function backupAll() {
   beginTiming(plannedCopyBytes());
   const op = startStoppable();
   let stopped = false;
+  let destinationGone = false;
 
   try {
     const maxFileSize = state.destination.maxFileSize || 0;
     for (const comparison of state.comparisons) {
       // Detenido: las carpetas que faltan se quedan para el próximo backup.
-      if (stopRequested()) {
+      if (stopRequested() || destinationGone) {
         stopped = true;
         break;
       }
@@ -2636,10 +2637,12 @@ async function backupAll() {
           if (versionResult.errors.length) {
             versionResult.errors.forEach((e) => log("Error al guardar versión: " + e.file + " — " + e.error));
           }
+          if (versionResult.destinationGone) destinationGone = true;
         }
 
-        // Si se detuvo mientras se guardaban las versiones, no se empieza a copiar.
-        const result = stopRequested()
+        // Si se detuvo mientras se guardaban las versiones (incluido el disco
+        // desconectado a mitad de esa parte), no se empieza a copiar.
+        const result = stopRequested() || destinationGone
           ? { copied: 0, deduped: 0, done: [], errors: [], stopped: true }
           : await window.kopiaAPI.backupCopyFiles(tasks, {
               dedup,
@@ -2649,6 +2652,7 @@ async function backupAll() {
             });
         advanceTiming();
         if (result.stopped) stopped = true;
+        if (result.destinationGone) destinationGone = true;
         // Sólo si la app midió en este disco que 2 a la vez va más rápido (ver runTasks).
         if (result.probe && result.concurrency > 1) {
           log(comparison.sourceName + ": se copiaron " + result.concurrency + " archivos a la vez (medido más rápido en este disco).");
@@ -2661,6 +2665,17 @@ async function backupAll() {
         if (result.errors.length) {
           result.errors.forEach((e) => log("Error: " + e.file + " — " + e.error));
         }
+      }
+
+      // El disco ya no está: no se intenta guardar el manifiesto ni el
+      // informe en él (fallaría igual), y no se sigue con las demás carpetas
+      // de esta corrida. Lo que se llegó a copiar y verificar antes de la
+      // desconexión no se pierde (quedó en el disco), pero no queda
+      // registrado en el manifiesto: en el próximo backup se vuelve a copiar
+      // (y, al tener el mismo contenido, de nuevo correcto, sólo de más).
+      if (destinationGone) {
+        stopped = true;
+        break;
       }
 
       // Sólo se registran como respaldados los archivos que de verdad se
