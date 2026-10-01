@@ -218,12 +218,24 @@ window.KD_VERSIONES = [
 ,
   {
     "v": "V4.0.2",
-    "nombre": "La actual",
+    "nombre": "",
     "fecha": "01-10-2026",
     "tipo": "App de escritorio · Electron 43",
     "resumen": "Retoque: el tutorial ya no parpadea al cambiar de paso.",
     "puntos": [
       "Al mostrar cada paso, la tarjeta del tutorial aparecía un instante en la esquina de la ventana antes de ir a su sitio. Ahora se coloca en su sitio desde el principio."
+    ]
+  }
+,
+  {
+    "v": "V4.0.3",
+    "nombre": "La actual",
+    "fecha": "01-10-2026",
+    "tipo": "App de escritorio · Electron 43",
+    "resumen": "Retoques: la copia de Kiopia Desk portable a la USB avisa su avance real, y una desconexión a mitad de copia se corta con un solo aviso claro.",
+    "puntos": [
+      "Guardar Kiopia Desk portable en el disco ya no se queda «atascada» en 0: se copia por bloques y avisa el progreso real en bytes.",
+      "Si el disco de backup se desconecta a mitad de una copia, en vez de un error confuso por cada archivo pendiente, un solo aviso claro y se corta sin mezclar nada."
     ]
   }
 ];
